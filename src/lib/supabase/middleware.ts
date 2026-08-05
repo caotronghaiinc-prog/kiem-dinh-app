@@ -1,6 +1,10 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+// Route duy nhất không cần đăng nhập. Mọi route khác đều bị chặn nếu chưa
+// có session hợp lệ.
+const PUBLIC_PATHS = ["/login"];
+
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request,
@@ -32,9 +36,20 @@ export async function updateSession(request: NextRequest) {
   // Do not run any code between createServerClient and
   // supabase.auth.getUser(). A simple mistake could make it very hard to
   // debug issues with users being randomly logged out.
-  // Route protection by role/auth is deferred to PROMPT-03 — this call
-  // only refreshes the session cookies for now.
-  await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const isPublicPath = PUBLIC_PATHS.some((path) =>
+    request.nextUrl.pathname.startsWith(path)
+  );
+
+  if (!user && !isPublicPath) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/login";
+    url.searchParams.set("redirectTo", request.nextUrl.pathname);
+    return NextResponse.redirect(url);
+  }
 
   // IMPORTANT: You *must* return the supabaseResponse object as it is.
   return supabaseResponse;
