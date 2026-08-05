@@ -123,8 +123,60 @@ Vào **SQL Editor** trên Supabase Dashboard, copy nội dung `supabase/migratio
 - Client Component: hook `useCurrentUserProfile()` (`src/hooks/use-current-user-profile.ts`) — không thể dùng chung 1 hàm cho cả 2 vì `cookies()` chỉ chạy được ở server.
 - Ẩn/hiện UI theo role: `<RoleGate allowedRoles={['admin']}>...</RoleGate>` (`src/components/auth/role-gate.tsx`).
 
+## 8. Danh sách khách hàng (PROMPT-04)
+
+Route thực tế là **`/customers`**, không phải `/dashboard/customers` — dự án dùng route group `(dashboard)` nên các trang bên trong (`/dashboard`, `/test-connection`, `/customers`) đều nằm ở URL gốc, theo đúng tiền lệ đã có từ PROMPT-01/03 (vd `/test-connection` chứ không phải `/dashboard/test-connection`).
+
+Migration `supabase/migrations/0003_customer_code_sequence.sql` thiết lập:
+
+- `sequence customer_code_seq` — sinh số thứ tự atomic, tăng liên tục, không reset theo năm.
+- `generate_customer_code()` — trả về `KH-<năm hiện tại>-<số thứ tự 3 chữ số>`.
+- Trigger `before_customers_insert_set_code` — tự gán `code` khi INSERT nếu chưa điền.
+- Nếu bảng `customers` đã có sẵn dữ liệu với mã dạng `KH-YYYY-NNN`, migration tự đưa sequence tiếp tục từ số lớn nhất đang có (không trùng/lùi số).
+
+### Chạy migration 0003 trên Supabase
+
+Vào **SQL Editor**, copy nội dung `supabase/migrations/0003_customer_code_sequence.sql`, dán và **Run** (chạy sau `0001` và `0002`).
+
+### Tạo khách hàng mẫu để test giao diện (form Thêm khách hàng chưa có UI)
+
+Vào **SQL Editor**, chạy:
+
+```sql
+insert into customers (company_name, contact_name, phone, email, type, status)
+values
+  ('Công ty TNHH Cơ khí An Toàn', 'Nguyễn Văn A', '0901234567', 'a@congtyat.vn', 'doanh nghiệp', 'active'),
+  ('Công ty CP Xây dựng Miền Trung', 'Trần Thị B', '0912345678', 'b@xdmt.vn', 'doanh nghiệp', 'potential'),
+  ('Xưởng cơ khí Hòa Phát', 'Lê Văn C', '0987654321', null, 'cá nhân', 'inactive'),
+  ('Công ty TNHH Nồi hơi Đà Nẵng', 'Phạm Thị D', '0977111222', 'd@noihoidn.vn', 'doanh nghiệp', 'active');
+
+-- Kiểm tra mã tự sinh (phải tăng dần liên tục: 001, 002, 003, 004...)
+select code, company_name, status, created_at from customers order by created_at;
+```
+
+Chạy thêm 1 lần `insert` nữa với vài dòng để xác nhận số thứ tự **tiếp tục tăng** (không reset), ví dụ nếu đang ở `KH-2026-004` thì dòng tiếp theo phải là `KH-2026-005`.
+
+Để test đếm "Số thiết bị" hiển thị đúng, gắn thử vài thiết bị vào 1 khách hàng (thay `<customer_id>` bằng `id` lấy từ câu SELECT trên):
+
+```sql
+insert into equipment (customer_id, code, name, type, status)
+values
+  ('<customer_id>', 'TB-TEST-001', 'Nồi hơi 500kg', 'nồi hơi', 'valid'),
+  ('<customer_id>', 'TB-TEST-002', 'Cần trục tháp', 'cần trục', 'valid');
+```
+
+### Test tìm kiếm / lọc / phân trang
+
+- Gõ vào ô tìm kiếm 1 phần tên công ty, mã KH, hoặc SĐT — sau ~300ms URL phải đổi thành `/customers?q=...` và bảng lọc đúng.
+- Đổi dropdown Trạng thái — URL đổi thành `/customers?status=active` (hoặc `potential`/`inactive`).
+- Nếu có >20 khách hàng, kiểm tra nút Trước/Sau và `?page=2` hoạt động đúng, dòng "Trang X / Y" chính xác.
+- Đăng nhập bằng `inspector` → xác nhận nút "+ Thêm khách hàng" **không hiển thị**; đăng nhập `admin` → nút hiển thị và trỏ tới `/customers/new` (trang placeholder, form thật sẽ làm ở PROMPT-05).
+- Click vào 1 dòng/card → điều hướng sang `/customers/[id]` (trang placeholder, trang thật sẽ làm ở PROMPT-06).
+- Thu nhỏ trình duyệt xuống độ rộng mobile — bảng phải chuyển thành danh sách card, không tràn ngang.
+
 ## Ghi chú
 
 - App nội bộ ~10 người dùng, ưu tiên đơn giản/dễ bảo trì hơn là tối ưu quy mô lớn.
 - Role `accountant`/`office` đã khai báo trong `check constraint` của `profiles` nhưng CHƯA có policy RLS riêng — sẽ bổ sung khi có người dùng thật thuộc 2 role này.
-- CRUD thật cho khách hàng/thiết bị (kèm nút khóa/mở khóa `is_locked` trong UI) sẽ làm ở PROMPT-04/M3.
+- Form thêm/sửa khách hàng và trang chi tiết khách hàng sẽ làm ở PROMPT-05/06 (hiện là trang placeholder).
+- Đếm "Số thiết bị" dùng Supabase nested-aggregate (`equipment(count)`) — đúng theo tài liệu Supabase, nhưng sandbox Claude Code không gọi được `supabase.co` nên chưa tự chạy thử được với dữ liệu thật; cần bạn xác nhận qua Preview URL.
