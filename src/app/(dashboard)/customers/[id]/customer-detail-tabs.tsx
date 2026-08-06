@@ -60,10 +60,25 @@ function EmptyState({ icon: Icon, message }: { icon: typeof Wrench; message: str
   );
 }
 
+// Cột customers.type là text tự do (không có check constraint), form thêm/sửa
+// (PROMPT-05) lưu đúng "doanh nghiệp"/"cá nhân", nhưng dữ liệu nhập tay qua
+// SQL Editor để test có thể lệch hoa/thường hoặc dùng tiếng Anh -> chuẩn hoá
+// (trim + lowercase) trước khi tra bảng, kèm vài biến thể thường gặp, để
+// không hiện nhầm giá trị thô ra UI.
 const TYPE_LABELS: Record<string, string> = {
   "doanh nghiệp": "Doanh nghiệp",
+  "company": "Doanh nghiệp",
+  "business": "Doanh nghiệp",
   "cá nhân": "Cá nhân",
+  "individual": "Cá nhân",
+  "personal": "Cá nhân",
 };
+
+function translateCustomerType(type: string | null): string | null {
+  if (!type) return null;
+  const normalized = type.trim().toLowerCase();
+  return TYPE_LABELS[normalized] ?? type;
+}
 
 export function CustomerDetailTabs({
   customer,
@@ -92,10 +107,7 @@ export function CustomerDetailTabs({
           <InfoField label="Email" value={customer.email} />
           <InfoField label="Địa chỉ" value={customer.address} />
           <InfoField label="Mã số thuế" value={customer.tax_code} />
-          <InfoField
-            label="Loại khách hàng"
-            value={customer.type ? TYPE_LABELS[customer.type] ?? customer.type : null}
-          />
+          <InfoField label="Loại khách hàng" value={translateCustomerType(customer.type)} />
           <InfoField label="Ngành nghề" value={customer.industry} />
           <InfoField label="Nguồn khách hàng" value={customer.source} />
           <InfoField label="Ngày tạo" value={formatDate(customer.created_at ?? null)} />
