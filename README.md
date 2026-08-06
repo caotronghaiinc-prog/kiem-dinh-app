@@ -193,10 +193,31 @@ values
 4. Đăng nhập `inspector` → gõ thẳng URL `/customers/new` hoặc `/customers/<id>/edit` → phải bị redirect sang `/unauthorized` (không phải chỉ ẩn nút — chặn cả truy cập trực tiếp bằng URL).
 5. Trên `/customers`, xác nhận `inspector` không thấy nút "Sửa" ở bất kỳ dòng/card nào; `admin` thấy đầy đủ.
 
+## 10. Trang chi tiết khách hàng (PROMPT-06)
+
+- `/customers/[id]` — mọi role đã đăng nhập xem được (theo RLS SELECT hiện có, không chặn thêm). Id không tồn tại (hoặc không phải UUID hợp lệ) → dùng `.maybeSingle()` thay vì `.single()` nên không throw lỗi, hiện thẳng màn "Không tìm thấy khách hàng" + nút quay lại danh sách, không có trang nào crash 500.
+- Nút "Sửa" ở header và tab "Ghi chú" tính `isAdmin` một lần ở Server Component (giống pattern PROMPT-05), không dùng `<RoleGate>` lặp lại.
+- 4 tab dùng `Tabs` viết tay (`src/components/ui/tabs.tsx`, cần cài `@radix-ui/react-tabs`) — trên mobile `TabsList` cuộn ngang (`overflow-x-auto`) thay vì vỡ layout.
+- Tab "Thiết bị": màu cảnh báo hạn dùng chung hàm `getExpiryStatus()` tại `src/lib/utils/expiry-status.ts` — file này **cố tình tách riêng** để Dashboard (PROMPT-10/11, widget cảnh báo hạn KĐ đỏ/vàng/xanh) import lại y hệt logic, không tính lại.
+- Tab "Lịch sử kiểm định": join `inspection_history -> equipment (lọc theo customer_id, dùng `equipment!inner(...)` để filter chuẩn qua PostgREST) -> profiles (tên KĐV)`.
+
+### ⚠️ Đã sửa 1 lỗi RLS phát sinh khi làm tab Lịch sử kiểm định
+
+Policy `profiles_select_own_or_admin` (từ PROMPT-03) chỉ cho user xem profile của **chính mình** hoặc admin xem tất cả. Khi inspector A xem lịch sử kiểm định do inspector B thực hiện, cột `profiles.full_name` của B bị RLS chặn ngay trong join → tên KĐV hiện trống dù dữ liệu vẫn đúng. Migration `supabase/migrations/0004_profiles_select_authenticated.sql` mở SELECT trên `profiles` cho mọi user đã đăng nhập (đồng bộ với quy tắc SELECT đã áp dụng cho `customers`/`equipment`/`inspection_history` từ trước) — **UPDATE không đổi**, vẫn chỉ tự sửa row của mình hoặc admin, và trigger chặn tự đổi `role`/`active` vẫn còn nguyên. Nhớ chạy migration này (sau `0001`-`0003`) trước khi test tab Lịch sử.
+
+### Test trang chi tiết khách hàng
+
+1. Từ `/customers`, click 1 khách hàng → vào đúng `/customers/[id]`, đủ 4 tab, số lượng trên tab "Thiết bị (N)"/"Lịch sử (N)" đúng.
+2. Khách hàng chưa có thiết bị/lịch sử → empty state hiện đúng (icon + text), không lỗi.
+3. Tạo/sửa vài dòng `equipment` qua SQL Editor với `expiry_date` khác nhau (quá hạn, còn ≤30 ngày, 31-60 ngày, >60 ngày, `null`) để xác nhận đúng 3 màu + chữ "Quá hạn X ngày"/"Còn X ngày".
+4. Thêm vài dòng `inspection_history` (khác `inspector_id`) qua SQL Editor để test tên KĐV hiện đúng kể cả khi người xem không phải người tạo bản ghi đó.
+5. Đăng nhập `inspector` → không thấy nút "Sửa" ở header lẫn tab Ghi chú; đăng nhập `admin` → thấy đầy đủ.
+6. Gõ thẳng URL với 1 UUID không tồn tại (hoặc chuỗi bất kỳ như `/customers/khong-ton-tai`) → hiện "Không tìm thấy khách hàng", không crash.
+
 ## Ghi chú
 
 - App nội bộ ~10 người dùng, ưu tiên đơn giản/dễ bảo trì hơn là tối ưu quy mô lớn.
 - Role `accountant`/`office` đã khai báo trong `check constraint` của `profiles` nhưng CHƯA có policy RLS riêng — sẽ bổ sung khi có người dùng thật thuộc 2 role này.
-- Trang chi tiết khách hàng (`/customers/[id]`) vẫn là placeholder, sẽ làm ở PROMPT-06.
 - Đếm "Số thiết bị" dùng Supabase nested-aggregate (`equipment(count)`) — đúng theo tài liệu Supabase, nhưng sandbox Claude Code không gọi được `supabase.co` nên chưa tự chạy thử được với dữ liệu thật; cần bạn xác nhận qua Preview URL.
-- Toàn bộ luồng thêm/sửa khách hàng (PROMPT-05) cũng chưa tự test được bằng dữ liệu thật vì lý do trên — cần xác nhận qua Preview URL theo checklist ở mục 9.
+- Toàn bộ luồng thêm/sửa khách hàng (PROMPT-05) và trang chi tiết (PROMPT-06) cũng chưa tự test được bằng dữ liệu thật vì lý do trên — cần xác nhận qua Preview URL theo các checklist ở mục 9-10.
+- **Màu badge trạng thái khách hàng**: PROMPT-06 yêu cầu Tiềm năng=xám/Ngừng hoạt động=đỏ nhạt, nhưng PROMPT-04 (đã merge master) đã chốt Tiềm năng=vàng/Ngừng hoạt động=xám. Đã giữ nguyên bảng màu cũ (`src/lib/customers/status.ts`) để nhất quán giữa trang danh sách và trang chi tiết thay vì làm 2 màu khác nhau cho cùng 1 trạng thái — nếu bạn muốn đổi theo màu mới, nói mình sửa 1 chỗ trong `status.ts` là áp dụng cho cả 2 trang.
