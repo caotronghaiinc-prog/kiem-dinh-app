@@ -7,7 +7,7 @@
 ## TRẠNG THÁI TỔNG QUAN
 **Phase hiện tại:** Phase 1 — CRM & Nền móng  
 **Tuần hiện tại:** Tuần 2 — CRUD Khách hàng  
-**Cập nhật lần cuối:** 05/08/2026
+**Cập nhật lần cuối:** 06/08/2026
 
 ---
 
@@ -27,7 +27,7 @@
 
 ## 🔄 ĐANG LÀM
 
-- [ ] **[PROMPT-04]** Màn hình danh sách khách hàng (tìm kiếm, lọc, phân trang)
+- [ ] **[PROMPT-05]** Form thêm/sửa khách hàng (validation đầy đủ)
 
 ---
 
@@ -59,7 +59,7 @@
   - 2 tài khoản test: caotronghai.inc@gmail.com (admin), caotronghai.incosaf@gmail.com (inspector)
 
 ### Tuần 2: CRUD Khách hàng
-- [ ] **[PROMPT-04]** Màn hình danh sách khách hàng (tìm kiếm, lọc, phân trang)
+- [x] **[PROMPT-04]** Màn hình danh sách khách hàng (tìm kiếm, lọc, phân trang)
 - [ ] **[PROMPT-05]** Form thêm/sửa khách hàng (validation đầy đủ)
 - [ ] **[PROMPT-06]** Trang chi tiết khách hàng (4 tab)
 
@@ -113,6 +113,7 @@
 | PROMPT-01 | Setup project Next.js | ✅ Xong | |
 | PROMPT-02 | Supabase schema | ✅ Xong | |
 | PROMPT-03 | Auth + phân quyền | ✅ Xong | 2 role admin/inspector, RLS đầy đủ, đã merge master |
+| PROMPT-04 | Danh sách khách hàng | ✅ Xong | Route /customers (không phải /dashboard/customers), mã KH tự sinh tăng dần, RoleGate ẩn nút Thêm theo role |
 | ... | ... | ... | |
 
 ---
