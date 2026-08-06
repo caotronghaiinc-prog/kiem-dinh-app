@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUserProfile } from "@/lib/auth/get-current-user-profile";
 import { RoleGate } from "@/components/auth/role-gate";
 import { Button } from "@/components/ui/button";
 import {
@@ -42,6 +43,8 @@ export default async function CustomersPage({
   const page = Math.max(1, Number(firstParam(searchParams.page)) || 1);
 
   const supabase = await createClient();
+  const profile = await getCurrentUserProfile();
+  const isAdmin = profile?.role === "admin";
 
   let query = supabase
     .from("customers")
@@ -112,11 +115,12 @@ export default async function CustomersPage({
                   <TableHead>SĐT</TableHead>
                   <TableHead className="text-center">Số thiết bị</TableHead>
                   <TableHead>Trạng thái</TableHead>
+                  {isAdmin && <TableHead>Thao tác</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {customers.map((customer) => (
-                  <CustomerTableRow key={customer.id} customer={customer} />
+                  <CustomerTableRow key={customer.id} customer={customer} isAdmin={isAdmin} />
                 ))}
               </TableBody>
             </Table>
@@ -124,7 +128,7 @@ export default async function CustomersPage({
 
           <div className="flex flex-col gap-3 md:hidden">
             {customers.map((customer) => (
-              <CustomerCard key={customer.id} customer={customer} />
+              <CustomerCard key={customer.id} customer={customer} isAdmin={isAdmin} />
             ))}
           </div>
 
