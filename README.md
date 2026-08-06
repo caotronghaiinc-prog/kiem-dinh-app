@@ -110,7 +110,7 @@ Vào **SQL Editor** trên Supabase Dashboard, copy nội dung `supabase/migratio
 
 ### Kịch bản test RLS cần kiểm tra
 
-1. **Inspector không được xóa customer**: đăng nhập bằng user `inspector` → gọi `supabase.from('customers').delete()...` (hoặc thử qua Table Editor với vai trò tương ứng) → phải bị chặn bởi RLS (không có policy DELETE cho inspector trên `customers`).
+1. **Inspector không được xóa customer**: đăng nhập bằng user `inspector` → gọi `supabase.from('customers').delete()...` (hoặc thử qua Table Editor với vai trò tương ứng) → phải bị chặn bởi RLS (không có policy DELETE cho inspector trên `customers`). (Lưu ý: quyền INSERT trên `customers` đã đổi ở mục 11 — inspector giờ tạo mới được, chỉ Sửa/Xóa vẫn bị chặn.)
 2. **Bản ghi khóa (`is_locked = true`) chỉ admin sửa được**: vào Table Editor, set `is_locked = true` cho 1 dòng `inspection_history` → đăng nhập `inspector`, thử UPDATE dòng đó → bị chặn; đăng nhập `admin`, thử UPDATE → thành công.
 
 ### Route protection (middleware)
@@ -214,10 +214,55 @@ Policy `profiles_select_own_or_admin` (từ PROMPT-03) chỉ cho user xem profil
 5. Đăng nhập `inspector` → không thấy nút "Sửa" ở header lẫn tab Ghi chú; đăng nhập `admin` → thấy đầy đủ.
 6. Gõ thẳng URL với 1 UUID không tồn tại (hoặc chuỗi bất kỳ như `/customers/khong-ton-tai`) → hiện "Không tìm thấy khách hàng", không crash.
 
+## 11. Phân quyền customers — inspector được Tạo mới (không phải PROMPT riêng, thay đổi quy tắc)
+
+Quy tắc phân quyền hiện tại trên bảng `customers`:
+
+| Hành động | Admin | Inspector | Accountant/Office |
+|---|---|---|---|
+| Xem (SELECT) | ✅ | ✅ | Chưa triển khai |
+| Tạo mới (INSERT) | ✅ | ✅ | Chưa triển khai |
+| Sửa (UPDATE) | ✅ | ❌ (kể cả bản ghi tự tạo) | Chưa triển khai |
+| Xóa (DELETE) | ✅ | ❌ | Chưa triển khai |
+
+`equipment`/`inspection_history` không đổi (vẫn theo ma trận đã ghi ở mục 7).
+
+### Chạy migration 0005 trên Supabase (bắt buộc, phải chạy tay)
+
+Sandbox Claude Code không gọi được `supabase.co` nên không tự chạy migration được. Vào **SQL Editor**, chạy đúng theo thứ tự sau:
+
+**Bước 1 — kiểm tra policy hiện có (không bắt buộc nhưng nên chạy để đối chiếu):**
+
+```sql
+select policyname, cmd, qual from pg_policies where tablename = 'customers';
+```
+
+Sẽ thấy policy INSERT tên là `customers_insert_admin`, điều kiện chỉ cho `role = 'admin'`.
+
+**Bước 2 — chạy migration** (nội dung `supabase/migrations/0005_customers_insert_inspector.sql`):
+
+```sql
+drop policy if exists "customers_insert_admin" on customers;
+
+create policy "customers_insert_admin_or_inspector" on customers
+  for insert
+  with check (public.get_user_role() in ('admin', 'inspector'));
+```
+
+Policy UPDATE (`customers_update_admin`) và DELETE (`customers_delete_admin`) không đổi — không cần chạy gì thêm cho 2 policy này.
+
+### Test sau khi đổi quyền
+
+1. Đăng nhập `inspector` → `/customers` → nút "+ Thêm khách hàng" phải **hiện** (trước đây bị ẩn).
+2. `inspector` bấm "+ Thêm khách hàng" → điền form → Lưu → phải thành công (trước đây bị RLS chặn).
+3. Trên danh sách và trang chi tiết, `inspector` vẫn **không** thấy nút "Sửa" ở bất kỳ đâu — kể cả với khách hàng do chính `inspector` đó vừa tạo.
+4. Gõ thẳng URL `/customers/<id>/edit` khi đăng nhập `inspector` (kể cả với khách hàng tự tạo) → vẫn bị redirect `/unauthorized` (route edit không đổi quyền).
+5. `admin` vẫn Thêm/Sửa/Xóa được như cũ, không đổi gì.
+
 ## Ghi chú
 
 - App nội bộ ~10 người dùng, ưu tiên đơn giản/dễ bảo trì hơn là tối ưu quy mô lớn.
 - Role `accountant`/`office` đã khai báo trong `check constraint` của `profiles` nhưng CHƯA có policy RLS riêng — sẽ bổ sung khi có người dùng thật thuộc 2 role này.
 - Đếm "Số thiết bị" dùng Supabase nested-aggregate (`equipment(count)`) — đúng theo tài liệu Supabase, nhưng sandbox Claude Code không gọi được `supabase.co` nên chưa tự chạy thử được với dữ liệu thật; cần bạn xác nhận qua Preview URL.
-- Toàn bộ luồng thêm/sửa khách hàng (PROMPT-05) và trang chi tiết (PROMPT-06) cũng chưa tự test được bằng dữ liệu thật vì lý do trên — cần xác nhận qua Preview URL theo các checklist ở mục 9-10.
+- Toàn bộ luồng thêm/sửa khách hàng (PROMPT-05), trang chi tiết (PROMPT-06) và đổi quyền inspector (mục 11) cũng chưa tự test được bằng dữ liệu thật vì lý do trên — cần xác nhận qua Preview URL theo các checklist tương ứng.
 - **Màu badge trạng thái khách hàng**: PROMPT-06 yêu cầu Tiềm năng=xám/Ngừng hoạt động=đỏ nhạt, nhưng PROMPT-04 (đã merge master) đã chốt Tiềm năng=vàng/Ngừng hoạt động=xám. Đã giữ nguyên bảng màu cũ (`src/lib/customers/status.ts`) để nhất quán giữa trang danh sách và trang chi tiết thay vì làm 2 màu khác nhau cho cùng 1 trạng thái — nếu bạn muốn đổi theo màu mới, nói mình sửa 1 chỗ trong `status.ts` là áp dụng cho cả 2 trang.

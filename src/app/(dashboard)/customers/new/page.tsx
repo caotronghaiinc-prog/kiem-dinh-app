@@ -2,7 +2,7 @@ import { requireRole } from "@/lib/auth/require-role";
 import { CustomerForm } from "../customer-form";
 
 export default async function NewCustomerPage() {
-  await requireRole(["admin"]);
+  await requireRole(["admin", "inspector"]);
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6 p-8">

@@ -96,7 +96,7 @@ export default async function CustomersPage({
               : "Chưa có khách hàng nào."}
           </p>
           {!hasFilters && (
-            <RoleGate allowedRoles={["admin"]}>
+            <RoleGate allowedRoles={["admin", "inspector"]}>
               <Button asChild>
                 <Link href="/customers/new">+ Thêm khách hàng</Link>
               </Button>
