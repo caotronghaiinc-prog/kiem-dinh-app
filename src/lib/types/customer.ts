@@ -19,3 +19,20 @@ export function getEquipmentCount(customer: CustomerListItem): number {
   if (Array.isArray(rel)) return rel[0]?.count ?? 0;
   return rel.count ?? 0;
 }
+
+/** Full row shape used by the add/edit customer form. */
+export interface CustomerRecord {
+  id: string;
+  code: string;
+  company_name: string;
+  contact_name: string | null;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  tax_code: string | null;
+  type: string | null;
+  industry: string | null;
+  source: string | null;
+  status: CustomerStatus;
+  notes: string | null;
+}

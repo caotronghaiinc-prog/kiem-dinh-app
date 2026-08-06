@@ -3,10 +3,17 @@
 import { useRouter } from "next/navigation";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { CUSTOMER_STATUS_CONFIG } from "@/lib/customers/status";
 import { getEquipmentCount, type CustomerListItem } from "@/lib/types/customer";
 
-export function CustomerTableRow({ customer }: { customer: CustomerListItem }) {
+export function CustomerTableRow({
+  customer,
+  isAdmin,
+}: {
+  customer: CustomerListItem;
+  isAdmin: boolean;
+}) {
   const router = useRouter();
   const status = CUSTOMER_STATUS_CONFIG[customer.status] ?? CUSTOMER_STATUS_CONFIG.potential;
 
@@ -25,6 +32,20 @@ export function CustomerTableRow({ customer }: { customer: CustomerListItem }) {
           {status.label}
         </Badge>
       </TableCell>
+      {isAdmin && (
+        <TableCell>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              router.push(`/customers/${customer.id}/edit`);
+            }}
+          >
+            Sửa
+          </Button>
+        </TableCell>
+      )}
     </TableRow>
   );
 }

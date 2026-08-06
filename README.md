@@ -174,9 +174,29 @@ values
 - Click vào 1 dòng/card → điều hướng sang `/customers/[id]` (trang placeholder, trang thật sẽ làm ở PROMPT-06).
 - Thu nhỏ trình duyệt xuống độ rộng mobile — bảng phải chuyển thành danh sách card, không tràn ngang.
 
+## 9. Form thêm/sửa khách hàng (PROMPT-05)
+
+- `/customers/new` — form thêm mới. `/customers/[id]/edit` — form sửa, tự load dữ liệu có sẵn.
+- Cả 2 route được bảo vệ ở **Server Component** bằng `requireRole(["admin"])` (`src/lib/auth/require-role.ts`): nếu đăng nhập nhưng không phải `admin` → `redirect("/unauthorized")` ngay trên server, không lộ nội dung form ra dù chỉ trong chớp mắt. Middleware (`src/middleware.ts`) lo phần "chưa đăng nhập → `/login`" như cũ; `requireRole` lo phần "đăng nhập rồi nhưng sai role".
+- `<RoleGate>` (client, ẩn/hiện theo role) vẫn dùng cho các nút bấm inline như "+ Thêm khách hàng", nút "Sửa" trên danh sách — nhưng nút "Sửa" ở mỗi dòng/card thì dùng prop `isAdmin` tính 1 lần ở Server Component (`getCurrentUserProfile()`) rồi truyền xuống, thay vì mỗi dòng tự gọi `<RoleGate>` (mỗi `<RoleGate>` là 1 lần gọi Supabase phía client — 20 dòng/trang thì thành 20 lần gọi thừa).
+- Validation: `react-hook-form` + `zod` (`src/lib/customers/form-schema.ts`) — SĐT VN (`0xxxxxxxxx` hoặc `+84xxxxxxxxx`), email đúng định dạng nếu có nhập, mã số thuế 10 hoặc 13 chữ số nếu có nhập.
+- `type` (Doanh nghiệp/Cá nhân) và `source` (Giới thiệu/Website/...) là cột `text` tự do trong DB (không có `check constraint`) — lưu trực tiếp chuỗi tiếng Việt hiển thị (`"doanh nghiệp"`, `"Giới thiệu"`, ...) thay vì mã hoá thành slug, để xem trực tiếp trong Table Editor cũng dễ đọc.
+- Ghi/sửa gọi thẳng `supabase.from('customers').insert/update(...)` từ Client Component (giống pattern `/login` đã dùng ở PROMPT-03) — không dùng Server Action/API route riêng, để đơn giản. RLS (`customers_insert_admin`, `customers_update_admin` từ migration 0002) là lớp chặn cuối cùng nếu ai đó bypass UI.
+- Nút "Hủy" dùng `router.push('/customers')` (không dùng `router.back()`) để luôn có đích đến rõ ràng kể cả khi user vào form bằng cách gõ thẳng URL.
+- Lưu thành công → toast + redirect `/customers` (chưa có trang chi tiết thật nên không redirect vào `/customers/[id]`). Lưu lỗi → toast đỏ, giữ nguyên dữ liệu đã nhập (không reset form).
+
+### Test luồng thêm/sửa khách hàng
+
+1. Đăng nhập `admin` → `/customers` → bấm "+ Thêm khách hàng" → điền form, để trống các trường không bắt buộc → Lưu → phải thấy toast "Đã thêm khách hàng", quay về `/customers`, khách hàng mới nằm đầu danh sách với mã `KH-2026-NNN` đúng thứ tự tăng dần tiếp theo.
+2. Bấm "Sửa" trên khách hàng vừa tạo → xác nhận mã KH hiển thị dạng disabled, đúng giá trị → sửa vài trường → Lưu → quay lại `/customers`, dữ liệu cập nhật đúng, mã KH không đổi.
+3. Thử nhập SĐT sai định dạng (vd `123`), email sai định dạng, mã số thuế 5 chữ số → phải thấy lỗi tiếng Việt ngay dưới field, không cho submit.
+4. Đăng nhập `inspector` → gõ thẳng URL `/customers/new` hoặc `/customers/<id>/edit` → phải bị redirect sang `/unauthorized` (không phải chỉ ẩn nút — chặn cả truy cập trực tiếp bằng URL).
+5. Trên `/customers`, xác nhận `inspector` không thấy nút "Sửa" ở bất kỳ dòng/card nào; `admin` thấy đầy đủ.
+
 ## Ghi chú
 
 - App nội bộ ~10 người dùng, ưu tiên đơn giản/dễ bảo trì hơn là tối ưu quy mô lớn.
 - Role `accountant`/`office` đã khai báo trong `check constraint` của `profiles` nhưng CHƯA có policy RLS riêng — sẽ bổ sung khi có người dùng thật thuộc 2 role này.
-- Form thêm/sửa khách hàng và trang chi tiết khách hàng sẽ làm ở PROMPT-05/06 (hiện là trang placeholder).
+- Trang chi tiết khách hàng (`/customers/[id]`) vẫn là placeholder, sẽ làm ở PROMPT-06.
 - Đếm "Số thiết bị" dùng Supabase nested-aggregate (`equipment(count)`) — đúng theo tài liệu Supabase, nhưng sandbox Claude Code không gọi được `supabase.co` nên chưa tự chạy thử được với dữ liệu thật; cần bạn xác nhận qua Preview URL.
+- Toàn bộ luồng thêm/sửa khách hàng (PROMPT-05) cũng chưa tự test được bằng dữ liệu thật vì lý do trên — cần xác nhận qua Preview URL theo checklist ở mục 9.
