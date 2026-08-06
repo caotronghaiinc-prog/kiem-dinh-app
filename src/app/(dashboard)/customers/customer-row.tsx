@@ -13,7 +13,7 @@ export function CustomerTableRow({ customer }: { customer: CustomerListItem }) {
   return (
     <TableRow
       className="cursor-pointer"
-      onClick={() => router.push(`/dashboard/customers/${customer.id}`)}
+      onClick={() => router.push(`/customers/${customer.id}`)}
     >
       <TableCell className="font-medium">{customer.code}</TableCell>
       <TableCell>{customer.company_name}</TableCell>

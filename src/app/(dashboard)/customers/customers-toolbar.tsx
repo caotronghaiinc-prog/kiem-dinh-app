@@ -86,7 +86,7 @@ export function CustomersToolbar({
       </div>
       <RoleGate allowedRoles={["admin"]}>
         <Button asChild>
-          <Link href="/dashboard/customers/new">+ Thêm khách hàng</Link>
+          <Link href="/customers/new">+ Thêm khách hàng</Link>
         </Button>
       </RoleGate>
     </div>

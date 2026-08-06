@@ -8,7 +8,7 @@ export function CustomerCard({ customer }: { customer: CustomerListItem }) {
   const status = CUSTOMER_STATUS_CONFIG[customer.status] ?? CUSTOMER_STATUS_CONFIG.potential;
 
   return (
-    <Link href={`/dashboard/customers/${customer.id}`}>
+    <Link href={`/customers/${customer.id}`}>
       <Card className="transition-colors hover:bg-muted/50">
         <CardContent className="flex flex-col gap-2 p-4">
           <div className="flex items-start justify-between gap-2">

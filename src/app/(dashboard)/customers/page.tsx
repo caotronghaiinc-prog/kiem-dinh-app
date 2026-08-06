@@ -95,7 +95,7 @@ export default async function CustomersPage({
           {!hasFilters && (
             <RoleGate allowedRoles={["admin"]}>
               <Button asChild>
-                <Link href="/dashboard/customers/new">+ Thêm khách hàng</Link>
+                <Link href="/customers/new">+ Thêm khách hàng</Link>
               </Button>
             </RoleGate>
           )}

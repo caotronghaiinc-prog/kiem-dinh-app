@@ -28,7 +28,7 @@ export default async function DashboardLayout({
             <Link href="/dashboard" className="hover:text-foreground">
               Tổng quan
             </Link>
-            <Link href="/dashboard/customers" className="hover:text-foreground">
+            <Link href="/customers" className="hover:text-foreground">
               Khách hàng
             </Link>
             <Link href="/test-connection" className="hover:text-foreground">
