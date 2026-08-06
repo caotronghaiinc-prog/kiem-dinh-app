@@ -84,7 +84,7 @@ export function CustomersToolbar({
           </SelectContent>
         </Select>
       </div>
-      <RoleGate allowedRoles={["admin"]}>
+      <RoleGate allowedRoles={["admin", "inspector"]}>
         <Button asChild>
           <Link href="/customers/new">+ Thêm khách hàng</Link>
         </Button>
