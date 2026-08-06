@@ -35,4 +35,5 @@ export interface CustomerRecord {
   source: string | null;
   status: CustomerStatus;
   notes: string | null;
+  created_at?: string;
 }
