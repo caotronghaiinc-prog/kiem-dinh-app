@@ -320,6 +320,13 @@ create unique index if not exists customers_tax_code_unique_idx
 4. Sửa 1 khách hàng, đổi MST sang trùng khách hàng khác → cũng bị chặn giống lúc tạo mới.
 5. Tạo nhiều khách hàng tên trùng nhau — thử tạo thêm 1 khách hàng thứ 3 cùng tên → dialog phải liệt kê đủ cả 2 khách hàng trùng trước đó, không chỉ 1.
 
+### MST bắt buộc với khách hàng Doanh nghiệp (chuẩn bị cho hóa đơn điện tử — M2, Phase 3)
+
+- Chỉ validate ở **tầng form** (`superRefine` trong `src/lib/customers/form-schema.ts`), **không** thêm ràng buộc ở DB (không migration) — vì dữ liệu cũ có thể đã có khách hàng Doanh nghiệp thiếu MST, không muốn chặn cứng làm hỏng dữ liệu hiện có. Khách hàng cũ thiếu MST vẫn xem/thao tác bình thường; quy tắc mới chỉ áp dụng cho lần **Thêm mới** hoặc **Sửa và Lưu** tiếp theo.
+- Loại khách hàng = "Doanh nghiệp" → MST bắt buộc; "Cá nhân" → vẫn optional như cũ.
+- Label "Mã số thuế" tự hiện dấu `*` đỏ ngay khi đổi Loại khách hàng sang "Doanh nghiệp" trong form (dùng `form.watch("type")`), không cần đợi submit.
+- **Không xung đột với tính năng chặn trùng MST ở trên** — 2 việc chạy độc lập, tuần tự: zod validate (kể cả rule MST bắt buộc mới này) chạy trước tiên qua `zodResolver`; chỉ khi validate pass, `onSubmit` mới chạy tới bước kiểm tra trùng. Tác dụng phụ tự nhiên (không phải bug): trước đây 1 khách hàng Doanh nghiệp có thể để trống MST và né được luôn bước kiểm tra trùng MST (vì check trùng chỉ chạy `if (values.tax_code)`); giờ MST bắt buộc với Doanh nghiệp nên bước kiểm tra trùng MST sẽ luôn chạy cho nhóm khách hàng này.
+
 ## Ghi chú
 
 - App nội bộ ~10 người dùng, ưu tiên đơn giản/dễ bảo trì hơn là tối ưu quy mô lớn.

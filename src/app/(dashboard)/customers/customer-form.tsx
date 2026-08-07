@@ -89,6 +89,10 @@ export function CustomerForm({ mode, customer }: CustomerFormProps) {
     },
   });
 
+  // Theo dõi Loại khách hàng để hiện dấu * bắt buộc ở MST ngay khi đổi
+  // sang "doanh nghiệp", không cần chờ submit mới biết.
+  const isBusinessType = form.watch("type") === "doanh nghiệp";
+
   function buildPayload(values: CustomerFormValues) {
     return {
       company_name: values.company_name,
@@ -263,7 +267,10 @@ export function CustomerForm({ mode, customer }: CustomerFormProps) {
               name="tax_code"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Mã số thuế</FormLabel>
+                  <FormLabel>
+                    Mã số thuế
+                    {isBusinessType && <span className="text-destructive"> *</span>}
+                  </FormLabel>
                   <FormControl>
                     <Input placeholder="0123456789" {...field} />
                   </FormControl>
