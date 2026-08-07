@@ -25,7 +25,7 @@ export function EquipmentTableRow({
       <TableCell>{equipment.customer?.company_name || "—"}</TableCell>
       <TableCell>{equipment.type || "—"}</TableCell>
       <TableCell>
-        <ExpiryIndicator expiryDate={equipment.expiry_date} />
+        <ExpiryIndicator expiryDate={equipment.expiry_date} status={equipment.status} />
       </TableCell>
       {canEdit && (
         <TableCell>

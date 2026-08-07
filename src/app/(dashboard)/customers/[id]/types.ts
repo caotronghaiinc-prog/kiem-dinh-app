@@ -6,6 +6,7 @@ export interface EquipmentRow {
   name: string;
   type: string | null;
   expiry_date: string | null;
+  status: string;
 }
 
 export interface InspectionRow {

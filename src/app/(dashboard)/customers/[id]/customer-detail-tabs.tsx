@@ -122,7 +122,7 @@ export function CustomerDetailTabs({
                       <TableCell>{item.name}</TableCell>
                       <TableCell>{item.type || "—"}</TableCell>
                       <TableCell>
-                        <ExpiryIndicator expiryDate={item.expiry_date} />
+                        <ExpiryIndicator expiryDate={item.expiry_date} status={item.status} />
                       </TableCell>
                     </TableRow>
                   ))}
@@ -139,7 +139,7 @@ export function CustomerDetailTabs({
                         <p className="font-medium">{item.name}</p>
                         <p className="text-xs text-muted-foreground">{item.code}</p>
                       </div>
-                      <ExpiryIndicator expiryDate={item.expiry_date} />
+                      <ExpiryIndicator expiryDate={item.expiry_date} status={item.status} />
                     </div>
                     <p className="text-sm text-muted-foreground">Loại: {item.type || "—"}</p>
                   </CardContent>
