@@ -259,10 +259,45 @@ Policy UPDATE (`customers_update_admin`) và DELETE (`customers_delete_admin`) k
 4. Gõ thẳng URL `/customers/<id>/edit` khi đăng nhập `inspector` (kể cả với khách hàng tự tạo) → vẫn bị redirect `/unauthorized` (route edit không đổi quyền).
 5. `admin` vẫn Thêm/Sửa/Xóa được như cũ, không đổi gì.
 
+## 12. Danh sách thiết bị toàn hệ thống (PROMPT-07)
+
+- `/equipment` — mọi role đã đăng nhập xem được (RLS `equipment_select_authenticated` không giới hạn). Bảng desktop / card mobile, join `customers` qua `equipment.customer_id` để hiện tên công ty.
+- Sắp theo `expiry_date` tăng dần (thiết bị sắp hết hạn lên đầu, giống tab "Thiết bị" ở trang chi tiết khách hàng), màu cảnh báo hạn dùng lại đúng `<ExpiryIndicator>` (`src/components/equipment/expiry-indicator.tsx` — tách ra từ PROMPT-06 để 2 nơi dùng chung 1 component thay vì 2 bản JSX giống hệt nhau).
+- Tìm kiếm theo tên thiết bị/mã TB/tên khách hàng, lọc theo Loại thiết bị (danh sách DISTINCT thực tế lấy từ dữ liệu, không hardcode) và theo Khách hàng (chỉ liệt kê khách hàng đang có ít nhất 1 thiết bị) — kết hợp được nhiều điều kiện, tất cả qua URL search params (`?q=&type=&customerId=`) giống pattern `/customers`.
+- Nút "+ Thêm thiết bị" (toolbar) và "Sửa" (mỗi dòng/card): hiện cho cả `admin` và `inspector` — route đích (`/equipment/new`, `/equipment/[id]/edit`) hiện là placeholder "Sắp ra mắt — PROMPT-08" nhưng đã gắn `requireRole(["admin", "inspector"])` sẵn từ bây giờ để PROMPT-08 không cần thêm bước chặn quyền. `/equipment/[id]` (click dòng/card) là placeholder "Sắp ra mắt — PROMPT-09", không chặn theo role (giống trang chi tiết khách hàng, mọi role xem được).
+- Không có nút Xóa ở đâu trong trang này (đúng yêu cầu).
+
+### ⚠️ Phát hiện khi kiểm tra RLS `equipment` theo yêu cầu (chưa sửa ở PROMPT này)
+
+```sql
+select policyname, cmd, qual, with_check from pg_policies where tablename = 'equipment';
+```
+
+Kết quả đối chiếu với migration `0002_auth_rls.sql`:
+
+| Policy | Lệnh | Điều kiện |
+|---|---|---|
+| `equipment_select_authenticated` | SELECT | mọi user đã đăng nhập |
+| `equipment_insert_admin` | INSERT | **chỉ `admin`** |
+| `equipment_update_admin_inspector` | UPDATE | `admin` hoặc `inspector` |
+| `equipment_delete_admin` | DELETE | chỉ `admin` |
+
+Ma trận quyền nêu trong yêu cầu PROMPT-07 là "Inspector = Tạo mới + Sửa, KHÔNG Xóa" — nhưng policy INSERT hiện tại **chỉ cho admin tạo mới**, chưa khớp. UPDATE và DELETE đã đúng ma trận. Cần một migration tương tự `0005` (đã làm cho `customers`) khi build PROMPT-08 (form thêm/sửa thiết bị) để mở INSERT cho cả inspector — nếu không, `inspector` bấm "+ Thêm thiết bị" ở form thật sẽ bị RLS chặn dù nút đã hiện đúng.
+
+### Test danh sách thiết bị
+
+1. Vào `/equipment`, xác nhận đúng tên khách hàng hiện qua join, không bị "—" trừ khi thiết bị chưa gắn khách hàng.
+2. Tìm theo 1 phần tên thiết bị, mã TB, và tên công ty (3 lần riêng) — mỗi lần đều ra đúng kết quả.
+3. Lọc theo Loại + theo Khách hàng cùng lúc — kết hợp đúng (AND).
+4. Chỉnh `expiry_date` vài dòng equipment (SQL Editor) để có đủ 3 màu — xác nhận đúng màu, giống hệt cách hiện thị ở tab Thiết bị trang chi tiết khách hàng.
+5. Đăng nhập `inspector` → thấy "+ Thêm thiết bị" và "Sửa"; đăng nhập `admin` → thấy đầy đủ như nhau (2 role hiện ngang quyền ở bước UI này). Không có tài khoản nào thấy nút Xóa.
+6. Danh sách rỗng toàn hệ thống hoặc lọc ra 0 kết quả → empty state hiện đúng, không bảng trống trơn.
+
 ## Ghi chú
 
 - App nội bộ ~10 người dùng, ưu tiên đơn giản/dễ bảo trì hơn là tối ưu quy mô lớn.
 - Role `accountant`/`office` đã khai báo trong `check constraint` của `profiles` nhưng CHƯA có policy RLS riêng — sẽ bổ sung khi có người dùng thật thuộc 2 role này.
 - Đếm "Số thiết bị" dùng Supabase nested-aggregate (`equipment(count)`) — đúng theo tài liệu Supabase, nhưng sandbox Claude Code không gọi được `supabase.co` nên chưa tự chạy thử được với dữ liệu thật; cần bạn xác nhận qua Preview URL.
-- Toàn bộ luồng thêm/sửa khách hàng (PROMPT-05), trang chi tiết (PROMPT-06) và đổi quyền inspector (mục 11) cũng chưa tự test được bằng dữ liệu thật vì lý do trên — cần xác nhận qua Preview URL theo các checklist tương ứng.
+- Toàn bộ luồng thêm/sửa khách hàng (PROMPT-05), trang chi tiết (PROMPT-06), đổi quyền inspector cho `customers` (mục 11), và danh sách thiết bị (mục 12) cũng chưa tự test được bằng dữ liệu thật vì lý do trên — cần xác nhận qua Preview URL theo các checklist tương ứng.
 - **Màu badge trạng thái khách hàng**: PROMPT-06 yêu cầu Tiềm năng=xám/Ngừng hoạt động=đỏ nhạt, nhưng PROMPT-04 (đã merge master) đã chốt Tiềm năng=vàng/Ngừng hoạt động=xám. Đã giữ nguyên bảng màu cũ (`src/lib/customers/status.ts`) để nhất quán giữa trang danh sách và trang chi tiết thay vì làm 2 màu khác nhau cho cùng 1 trạng thái — nếu bạn muốn đổi theo màu mới, nói mình sửa 1 chỗ trong `status.ts` là áp dụng cho cả 2 trang.
+- **Danh sách thiết bị (mục 12) chưa có phân trang** — yêu cầu PROMPT-07 không nhắc tới phân trang (khác với `/customers` ở PROMPT-04 có phân trang 20/trang). Với quy mô ~10 người dùng hiện tại không đáng ngại, nhưng nếu tổng số thiết bị toàn hệ thống lớn dần theo thời gian, nên cân nhắc thêm phân trang giống `/customers` ở một prompt sau.
