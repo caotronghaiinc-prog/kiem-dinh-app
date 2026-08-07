@@ -6,8 +6,8 @@
 
 ## TRẠNG THÁI TỔNG QUAN
 **Phase hiện tại:** Phase 1 — CRM & Nền móng  
-**Tuần hiện tại:** Tuần 2 — CRUD Khách hàng  
-**Cập nhật lần cuối:** 06/08/2026
+**Tuần hiện tại:** Tuần 3 — CRUD Thiết bị  
+**Cập nhật lần cuối:** 07/08/2026
 
 ---
 
@@ -27,7 +27,7 @@
 
 ## 🔄 ĐANG LÀM
 
-- [ ] **[PROMPT-05]** Form thêm/sửa khách hàng (validation đầy đủ)
+- [ ] **[PROMPT-08]** Form thêm/sửa thiết bị (gắn với KH, màu trạng thái hạn)
 
 ---
 
@@ -60,11 +60,11 @@
 
 ### Tuần 2: CRUD Khách hàng
 - [x] **[PROMPT-04]** Màn hình danh sách khách hàng (tìm kiếm, lọc, phân trang)
-- [ ] **[PROMPT-05]** Form thêm/sửa khách hàng (validation đầy đủ)
-- [ ] **[PROMPT-06]** Trang chi tiết khách hàng (4 tab)
+- [x] **[PROMPT-05]** Form thêm/sửa khách hàng (validation đầy đủ)
+- [x] **[PROMPT-06]** Trang chi tiết khách hàng (4 tab)
 
 ### Tuần 3: CRUD Thiết bị
-- [ ] **[PROMPT-07]** Màn hình danh sách thiết bị (lọc theo loại, trạng thái hạn)
+- [x] **[PROMPT-07]** Màn hình danh sách thiết bị (lọc theo loại, trạng thái hạn)
 - [ ] **[PROMPT-08]** Form thêm/sửa thiết bị (gắn với KH, màu trạng thái hạn)
 - [ ] **[PROMPT-09]** Trang chi tiết thiết bị + lịch sử KĐ
 
@@ -115,6 +115,7 @@
 | PROMPT-02 | Supabase schema | ✅ Xong | |
 | PROMPT-03 | Auth + phân quyền | ✅ Xong | 2 role admin/inspector, RLS đầy đủ, đã merge master |
 | PROMPT-04 | Danh sách khách hàng | ✅ Xong | Route /customers (không phải /dashboard/customers), mã KH tự sinh tăng dần, RoleGate ẩn nút Thêm theo role |
+| PROMPT-07 | Danh sách thiết bị (toàn hệ thống) | ✅ Xong | /equipment JOIN customers, tìm 3 trường (tên/mã/tên KH), lọc Loại+KH kết hợp; component <ExpiryIndicator> tách dùng chung với trang chi tiết KH; nút Thêm/Sửa cho cả admin+inspector (route đích placeholder); phát hiện equipment_insert_admin chỉ cho admin — cần sửa ở PROMPT-08; đã merge master (PR #5) |
 | ... | ... | ... | |
 
 ---
