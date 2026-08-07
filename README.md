@@ -293,11 +293,136 @@ Ma trận quyền nêu trong yêu cầu PROMPT-07 là "Inspector = Tạo mới +
 5. Đăng nhập `inspector` → thấy "+ Thêm thiết bị" và "Sửa"; đăng nhập `admin` → thấy đầy đủ như nhau (2 role hiện ngang quyền ở bước UI này). Không có tài khoản nào thấy nút Xóa.
 6. Danh sách rỗng toàn hệ thống hoặc lọc ra 0 kết quả → empty state hiện đúng, không bảng trống trơn.
 
+## 13. Form thêm/sửa thiết bị (PROMPT-08)
+
+### Chạy 2 migration trên Supabase (bắt buộc, phải chạy tay)
+
+Sandbox Claude Code không gọi được `supabase.co` nên không tự chạy migration được. Vào **SQL Editor**, chạy đúng theo thứ tự:
+
+**Migration `0006_equipment_insert_inspector.sql`** — cho inspector tạo mới thiết bị (trước đây `equipment_insert_admin` chỉ cho admin):
+
+```sql
+drop policy if exists "equipment_insert_admin" on equipment;
+
+create policy "equipment_insert_admin_or_inspector" on equipment
+  for insert
+  with check (public.get_user_role() in ('admin', 'inspector'));
+```
+
+**Migration `0007_equipment_code_and_status.sql`** — sinh mã thiết bị tự động + tự tính status từ `expiry_date`:
+
+```sql
+create or replace function public.generate_equipment_code(p_customer_id uuid)
+returns text
+language plpgsql
+as $$
+declare
+  customer_seq text;
+  equipment_seq int;
+begin
+  select (regexp_match(code, '^KH-\d{4}-(\d+)$'))[1]
+    into customer_seq
+    from customers
+    where id = p_customer_id;
+
+  if customer_seq is null then
+    raise exception 'Không thể sinh mã thiết bị: khách hàng % không có mã hợp lệ', p_customer_id;
+  end if;
+
+  select count(*) + 1 into equipment_seq
+    from equipment
+    where customer_id = p_customer_id;
+
+  return 'TB-' || lpad(customer_seq, 3, '0') || '-' || lpad(equipment_seq::text, 3, '0');
+end;
+$$;
+
+create or replace function public.set_equipment_code()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.code is null or new.code = '' then
+    new.code := public.generate_equipment_code(new.customer_id);
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists before_equipment_insert_set_code on equipment;
+create trigger before_equipment_insert_set_code
+  before insert on equipment
+  for each row execute function public.set_equipment_code();
+
+create or replace function public.compute_equipment_status()
+returns trigger
+language plpgsql
+as $$
+declare
+  days_left int;
+begin
+  if new.status = 'inactive' then
+    return new;
+  end if;
+
+  if new.expiry_date is null then
+    new.status := 'valid';
+    return new;
+  end if;
+
+  days_left := new.expiry_date - current_date;
+
+  if days_left < 0 then
+    new.status := 'expired';
+  elsif days_left <= 60 then
+    new.status := 'expiring_soon';
+  else
+    new.status := 'valid';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists before_equipment_upsert_compute_status on equipment;
+create trigger before_equipment_upsert_compute_status
+  before insert or update on equipment
+  for each row execute function public.compute_equipment_status();
+```
+
+### Cách sinh mã thiết bị (TB-\<số KH\>-\<số TB trong KH\>)
+
+Ví dụ: thiết bị đầu tiên của khách hàng có mã `KH-2026-005` → `TB-005-001`; thiết bị thứ 2 của KH đó → `TB-005-002`.
+
+- **Số thứ tự KH**: lấy trực tiếp phần số trong `customers.code` (regex trên `KH-2026-005` → `005`) — **không** tự tính rank theo `created_at`. Lý do: số này vốn đã do `customer_code_seq` sinh ra lúc tạo KH (migration `0003`), là một số tăng dần liên tục, duy nhất, và **không bao giờ đổi** sau khi mã KH đã gán (mã KH không bị regenerate). Tính rank theo `created_at` lúc chạy thay vì đọc thẳng cột có sẵn sẽ tốn thêm 1 query, và dễ vướng edge case nếu 2 khách hàng có `created_at` trùng nhau (dù hiếm) — dùng lại số đã có trong `customers.code` chắc chắn ổn định hơn.
+- **Số thứ tự thiết bị trong KH**: `count(*) + 1` trên `equipment where customer_id = ...`, tính trong trigger `BEFORE INSERT` (cùng transaction với câu INSERT của client). Race condition (2 người thêm thiết bị cho cùng 1 KH cùng lúc) chỉ có thể xảy ra trong cửa sổ rất hẹp; nếu có trùng, cột `equipment.code` (`unique not null`) sẽ **chặn thẳng INSERT thứ 2** thay vì âm thầm ghi đè — form đã bắt lỗi này và hiện toast tiếng Việt mời thử lưu lại. Không dùng advisory lock/retry phức tạp, đúng tinh thần "không cần quá phức tạp" ở quy mô ~10 người dùng.
+
+### `status` tự tính từ `expiry_date` — không cho form set trực tiếp
+
+Trigger `compute_equipment_status()` chạy trước mọi INSERT/UPDATE: nếu giá trị gửi lên là `'inactive'` thì giữ nguyên (đây là giá trị **duy nhất** được tôn trọng — form gửi lên khi tick "Ngừng sử dụng"); mọi giá trị khác đều bị **ghi đè lại** theo `expiry_date`:
+- `expired`: đã quá hạn (< 0 ngày)
+- `expiring_soon`: còn 0-60 ngày
+- `valid`: còn > 60 ngày, hoặc chưa có `expiry_date`
+
+⚠️ Ngưỡng DB này **không khớp 1:1** với 3 màu đỏ/vàng/xanh của `getExpiryStatus()` (đỏ = ≤30 hoặc quá hạn, vàng = 31-60, xanh = >60) — DB `status` chỉ có 4 giá trị nên gộp "đỏ-chưa-quá-hạn" và "vàng" chung vào `expiring_soon`. Điều này **không ảnh hưởng UI**: màu hiển thị ở `/equipment` và tab Thiết bị trang chi tiết KH luôn tính trực tiếp từ `expiry_date` qua `<ExpiryIndicator>` tại thời điểm render, không đọc cột `status`. Cột `status` chủ yếu để dành cho truy vấn/thống kê nhanh sau này (vd Dashboard PROMPT-10/11).
+
+### Test form thêm/sửa thiết bị
+
+1. Sau khi chạy đủ 2 migration, đăng nhập `admin` **và** `inspector` → cả 2 đều thêm được thiết bị mới ở `/equipment/new`.
+2. Thêm liên tiếp 2-3 thiết bị cho cùng 1 khách hàng → mã TB đúng định dạng, số thứ tự trong KH tăng dần liên tục (001, 002, 003...).
+3. Sửa 1 thiết bị → mã TB và Khách hàng hiện read-only đúng giá trị cũ, không đổi được; sửa field khác → lưu đúng.
+4. Đổi `expiry_date` qua 3 mốc (còn xa/còn gần/đã quá hạn) → lưu lại → vào Table Editor kiểm tra `equipment.status` đổi đúng theo (`valid`/`expiring_soon`/`expired`), màu ở `/equipment` và tab Thiết bị trang chi tiết KH cũng đổi theo (2 nơi này tính độc lập từ `expiry_date`, không phụ thuộc `status`).
+5. Tick "Ngừng sử dụng" → lưu → `status = inactive` trong DB, giữ nguyên dù `expiry_date` là ngày gì.
+6. Nhập ngày kiểm định gần nhất SAU ngày hết hạn kiểm định → phải bị chặn validate tiếng Việt, không cho lưu.
+7. Nhập năm sản xuất ngoài khoảng 1950-năm hiện tại, hoặc chu kỳ kiểm định không phải số nguyên dương → báo lỗi tiếng Việt đúng field.
+
 ## Ghi chú
 
 - App nội bộ ~10 người dùng, ưu tiên đơn giản/dễ bảo trì hơn là tối ưu quy mô lớn.
 - Role `accountant`/`office` đã khai báo trong `check constraint` của `profiles` nhưng CHƯA có policy RLS riêng — sẽ bổ sung khi có người dùng thật thuộc 2 role này.
 - Đếm "Số thiết bị" dùng Supabase nested-aggregate (`equipment(count)`) — đúng theo tài liệu Supabase, nhưng sandbox Claude Code không gọi được `supabase.co` nên chưa tự chạy thử được với dữ liệu thật; cần bạn xác nhận qua Preview URL.
-- Toàn bộ luồng thêm/sửa khách hàng (PROMPT-05), trang chi tiết (PROMPT-06), đổi quyền inspector cho `customers` (mục 11), và danh sách thiết bị (mục 12) cũng chưa tự test được bằng dữ liệu thật vì lý do trên — cần xác nhận qua Preview URL theo các checklist tương ứng.
+- Toàn bộ luồng thêm/sửa khách hàng (PROMPT-05), trang chi tiết (PROMPT-06), đổi quyền inspector cho `customers`/`equipment` (mục 11, 13), danh sách thiết bị (mục 12) và form thiết bị (mục 13) cũng chưa tự test được bằng dữ liệu thật vì lý do trên — cần xác nhận qua Preview URL theo các checklist tương ứng.
 - **Màu badge trạng thái khách hàng**: PROMPT-06 yêu cầu Tiềm năng=xám/Ngừng hoạt động=đỏ nhạt, nhưng PROMPT-04 (đã merge master) đã chốt Tiềm năng=vàng/Ngừng hoạt động=xám. Đã giữ nguyên bảng màu cũ (`src/lib/customers/status.ts`) để nhất quán giữa trang danh sách và trang chi tiết thay vì làm 2 màu khác nhau cho cùng 1 trạng thái — nếu bạn muốn đổi theo màu mới, nói mình sửa 1 chỗ trong `status.ts` là áp dụng cho cả 2 trang.
 - **Danh sách thiết bị (mục 12) chưa có phân trang** — yêu cầu PROMPT-07 không nhắc tới phân trang (khác với `/customers` ở PROMPT-04 có phân trang 20/trang). Với quy mô ~10 người dùng hiện tại không đáng ngại, nhưng nếu tổng số thiết bị toàn hệ thống lớn dần theo thời gian, nên cân nhắc thêm phân trang giống `/customers` ở một prompt sau.
+- **Cột `specifications` là kiểu `jsonb`** trong DB nhưng form dùng textarea (text tự do) theo đúng yêu cầu PROMPT-08 — Supabase/PostgREST tự nhận text thường gửi lên cho cột jsonb và lưu thành 1 chuỗi JSON hợp lệ (JSON string scalar), đọc lại cũng tự động thành string bình thường ở 2 đầu, không cần code parse/serialize thêm.
+- **Dropdown "Loại thiết bị" ở form thêm/sửa** dùng danh sách CỐ ĐỊNH (đúng yêu cầu), khác với dropdown "Loại thiết bị" ở bộ lọc `/equipment` (PROMPT-07) vốn lấy DISTINCT từ dữ liệu thực tế — 2 mục đích khác nhau, không mâu thuẫn.
