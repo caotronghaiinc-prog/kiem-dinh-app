@@ -31,6 +31,9 @@ export default async function DashboardLayout({
             <Link href="/customers" className="hover:text-foreground">
               Khách hàng
             </Link>
+            <Link href="/equipment" className="hover:text-foreground">
+              Thiết bị
+            </Link>
             <Link href="/test-connection" className="hover:text-foreground">
               Kiểm tra kết nối
             </Link>

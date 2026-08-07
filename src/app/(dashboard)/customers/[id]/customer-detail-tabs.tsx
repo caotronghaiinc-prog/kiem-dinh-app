@@ -14,11 +14,7 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  EXPIRY_COLOR_DOT_CLASS,
-  EXPIRY_COLOR_TEXT_CLASS,
-  getExpiryStatus,
-} from "@/lib/utils/expiry-status";
+import { ExpiryIndicator } from "@/components/equipment/expiry-indicator";
 import { INSPECTION_RESULT_CONFIG } from "@/lib/inspection/result";
 import type { CustomerRecord } from "@/lib/types/customer";
 import type { EquipmentRow, InspectionRow } from "./types";
@@ -38,16 +34,6 @@ function InfoField({ label, value }: { label: string; value: string | null | und
         <span className="text-sm text-muted-foreground/70">Chưa có thông tin</span>
       )}
     </div>
-  );
-}
-
-function ExpiryIndicator({ expiryDate }: { expiryDate: string | null }) {
-  const status = getExpiryStatus(expiryDate);
-  return (
-    <span className={`inline-flex items-center gap-2 text-sm ${EXPIRY_COLOR_TEXT_CLASS[status.color]}`}>
-      <span className={`h-2 w-2 shrink-0 rounded-full ${EXPIRY_COLOR_DOT_CLASS[status.color]}`} />
-      {status.label}
-    </span>
   );
 }
 
