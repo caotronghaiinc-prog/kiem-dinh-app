@@ -4,6 +4,7 @@ export interface EquipmentListItem {
   name: string;
   type: string | null;
   expiry_date: string | null;
+  status: string;
   // Quan hệ nhiều-1 (nhiều equipment -> 1 customer) nên Supabase trả về
   // object đơn, không phải mảng.
   customer: { company_name: string } | null;

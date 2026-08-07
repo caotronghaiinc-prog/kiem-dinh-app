@@ -21,7 +21,7 @@ export default async function CustomerDetailPage({
       supabase.from("customers").select("*").eq("id", params.id).maybeSingle(),
       supabase
         .from("equipment")
-        .select("id, code, name, type, expiry_date")
+        .select("id, code, name, type, expiry_date, status")
         .eq("customer_id", params.id)
         .order("expiry_date", { ascending: true, nullsFirst: false }),
       supabase

@@ -81,7 +81,7 @@ export default async function EquipmentPage({
   let query = supabase
     .from("equipment")
     .select(
-      "id, code, name, type, expiry_date, customer:customers(company_name)",
+      "id, code, name, type, expiry_date, status, customer:customers(company_name)",
       { count: "exact" }
     )
     .order("expiry_date", { ascending: true, nullsFirst: false });

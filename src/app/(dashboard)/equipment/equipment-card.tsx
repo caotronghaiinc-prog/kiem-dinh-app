@@ -21,7 +21,7 @@ export function EquipmentCard({
                 <p className="font-medium">{equipment.name}</p>
                 <p className="text-xs text-muted-foreground">{equipment.code}</p>
               </div>
-              <ExpiryIndicator expiryDate={equipment.expiry_date} />
+              <ExpiryIndicator expiryDate={equipment.expiry_date} status={equipment.status} />
             </div>
             <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
               <span>KH: {equipment.customer?.company_name || "—"}</span>
