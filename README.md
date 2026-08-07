@@ -416,13 +416,48 @@ Trigger `compute_equipment_status()` chạy trước mọi INSERT/UPDATE: nếu 
 6. Nhập ngày kiểm định gần nhất SAU ngày hết hạn kiểm định → phải bị chặn validate tiếng Việt, không cho lưu.
 7. Nhập năm sản xuất ngoài khoảng 1950-năm hiện tại, hoặc chu kỳ kiểm định không phải số nguyên dương → báo lỗi tiếng Việt đúng field.
 
+## 14. Kiểm tra trùng khách hàng (tax_code chặn cứng, tên cảnh báo mềm)
+
+### Chạy migration `0008_customers_tax_code_unique.sql` trên Supabase (bắt buộc, phải chạy tay)
+
+```sql
+create unique index if not exists customers_tax_code_unique_idx
+  on customers (tax_code)
+  where tax_code is not null and tax_code <> '';
+```
+
+Đây là **partial unique index** (bỏ qua `NULL`/chuỗi rỗng vì `tax_code` không bắt buộc) — lớp bảo vệ cuối cùng ở tầng DB, sau khi form đã validate. Chạy sau `0001`-`0007`.
+
+### Cách hoạt động
+
+- **Trùng mã số thuế** (`tax_code`): kiểm tra chính xác (không cần bỏ hoa/thường vì MST là số) khi bấm Lưu. Nếu trùng → **chặn cứng**, hiện lỗi ngay dưới field: "Mã số thuế này đã được đăng ký cho khách hàng KH-... - Tên công ty". DB có thêm unique index như lớp chặn cuối nếu 2 người submit gần như đồng thời (form sẽ bắt lỗi `unique_violation` này và hiện toast tiếng Việt tương tự thay vì lỗi Postgres thô).
+- **Trùng tên công ty** (`company_name`): so sánh không phân biệt hoa/thường, bỏ khoảng trắng thừa (dùng `ilike` sau khi `trim()` — Postgres ILIKE vốn đã case-insensitive, không cần tự viết logic lowercase). Nếu trùng → **không chặn**, hiện dialog liệt kê toàn bộ khách hàng trùng tên (mã KH, tên đầy đủ, SĐT) kèm 2 nút "Hủy" (đóng dialog, không lưu) / "Vẫn tạo mới" (tiếp tục lưu như bình thường).
+- Áp dụng cho **cả `/customers/new` và `/customers/[id]/edit`**, không phân biệt role (admin/inspector đều bị áp cùng quy tắc) — khi sửa, tự loại trừ chính bản ghi đang sửa ra khỏi việc so khớp (không tự báo trùng với chính nó).
+- Kiểm tra chạy **khi bấm Lưu**, không real-time lúc gõ (đúng yêu cầu, tránh gọi API mỗi lần gõ phím).
+
+### Test
+
+1. Tạo khách hàng với MST trùng khách hàng đã có → bị chặn ngay, lỗi hiện đúng dưới field Mã số thuế, ghi rõ mã KH + tên công ty đang giữ MST đó.
+2. Tạo khách hàng tên trùng (khác hoa/thường, có thêm khoảng trắng, vd `" công ty ABC "` so với `"Công ty ABC"` đã có) → hiện dialog cảnh báo, danh sách đúng các khách hàng trùng; bấm "Hủy" → không lưu, quay lại form với dữ liệu còn nguyên; bấm "Vẫn tạo mới" → lưu thành công bình thường.
+3. Sửa 1 khách hàng, không đổi tên/MST → không bị cảnh báo/chặn (vì tự loại trừ chính nó).
+4. Sửa 1 khách hàng, đổi MST sang trùng khách hàng khác → cũng bị chặn giống lúc tạo mới.
+5. Tạo nhiều khách hàng tên trùng nhau — thử tạo thêm 1 khách hàng thứ 3 cùng tên → dialog phải liệt kê đủ cả 2 khách hàng trùng trước đó, không chỉ 1.
+
+### MST bắt buộc với khách hàng Doanh nghiệp (chuẩn bị cho hóa đơn điện tử — M2, Phase 3)
+
+- Chỉ validate ở **tầng form** (`superRefine` trong `src/lib/customers/form-schema.ts`), **không** thêm ràng buộc ở DB (không migration) — vì dữ liệu cũ có thể đã có khách hàng Doanh nghiệp thiếu MST, không muốn chặn cứng làm hỏng dữ liệu hiện có. Khách hàng cũ thiếu MST vẫn xem/thao tác bình thường; quy tắc mới chỉ áp dụng cho lần **Thêm mới** hoặc **Sửa và Lưu** tiếp theo.
+- Loại khách hàng = "Doanh nghiệp" → MST bắt buộc; "Cá nhân" → vẫn optional như cũ.
+- Label "Mã số thuế" tự hiện dấu `*` đỏ ngay khi đổi Loại khách hàng sang "Doanh nghiệp" trong form (dùng `form.watch("type")`), không cần đợi submit.
+- **Không xung đột với tính năng chặn trùng MST ở trên** — 2 việc chạy độc lập, tuần tự: zod validate (kể cả rule MST bắt buộc mới này) chạy trước tiên qua `zodResolver`; chỉ khi validate pass, `onSubmit` mới chạy tới bước kiểm tra trùng. Tác dụng phụ tự nhiên (không phải bug): trước đây 1 khách hàng Doanh nghiệp có thể để trống MST và né được luôn bước kiểm tra trùng MST (vì check trùng chỉ chạy `if (values.tax_code)`); giờ MST bắt buộc với Doanh nghiệp nên bước kiểm tra trùng MST sẽ luôn chạy cho nhóm khách hàng này.
+
 ## Ghi chú
 
 - App nội bộ ~10 người dùng, ưu tiên đơn giản/dễ bảo trì hơn là tối ưu quy mô lớn.
 - Role `accountant`/`office` đã khai báo trong `check constraint` của `profiles` nhưng CHƯA có policy RLS riêng — sẽ bổ sung khi có người dùng thật thuộc 2 role này.
 - Đếm "Số thiết bị" dùng Supabase nested-aggregate (`equipment(count)`) — đúng theo tài liệu Supabase, nhưng sandbox Claude Code không gọi được `supabase.co` nên chưa tự chạy thử được với dữ liệu thật; cần bạn xác nhận qua Preview URL.
-- Toàn bộ luồng thêm/sửa khách hàng (PROMPT-05), trang chi tiết (PROMPT-06), đổi quyền inspector cho `customers`/`equipment` (mục 11, 13), danh sách thiết bị (mục 12) và form thiết bị (mục 13) cũng chưa tự test được bằng dữ liệu thật vì lý do trên — cần xác nhận qua Preview URL theo các checklist tương ứng.
+- Toàn bộ luồng thêm/sửa khách hàng (PROMPT-05), trang chi tiết (PROMPT-06), đổi quyền inspector cho `customers`/`equipment` (mục 11, 13), danh sách thiết bị (mục 12), form thiết bị (mục 13), và kiểm tra trùng khách hàng (mục 14) cũng chưa tự test được bằng dữ liệu thật vì lý do trên — cần xác nhận qua Preview URL theo các checklist tương ứng.
 - **Màu badge trạng thái khách hàng**: PROMPT-06 yêu cầu Tiềm năng=xám/Ngừng hoạt động=đỏ nhạt, nhưng PROMPT-04 (đã merge master) đã chốt Tiềm năng=vàng/Ngừng hoạt động=xám. Đã giữ nguyên bảng màu cũ (`src/lib/customers/status.ts`) để nhất quán giữa trang danh sách và trang chi tiết thay vì làm 2 màu khác nhau cho cùng 1 trạng thái — nếu bạn muốn đổi theo màu mới, nói mình sửa 1 chỗ trong `status.ts` là áp dụng cho cả 2 trang.
 - **Danh sách thiết bị (mục 12) chưa có phân trang** — yêu cầu PROMPT-07 không nhắc tới phân trang (khác với `/customers` ở PROMPT-04 có phân trang 20/trang). Với quy mô ~10 người dùng hiện tại không đáng ngại, nhưng nếu tổng số thiết bị toàn hệ thống lớn dần theo thời gian, nên cân nhắc thêm phân trang giống `/customers` ở một prompt sau.
 - **Cột `specifications` là kiểu `jsonb`** trong DB nhưng form dùng textarea (text tự do) theo đúng yêu cầu PROMPT-08 — Supabase/PostgREST tự nhận text thường gửi lên cho cột jsonb và lưu thành 1 chuỗi JSON hợp lệ (JSON string scalar), đọc lại cũng tự động thành string bình thường ở 2 đầu, không cần code parse/serialize thêm.
 - **Dropdown "Loại thiết bị" ở form thêm/sửa** dùng danh sách CỐ ĐỊNH (đúng yêu cầu), khác với dropdown "Loại thiết bị" ở bộ lọc `/equipment` (PROMPT-07) vốn lấy DISTINCT từ dữ liệu thực tế — 2 mục đích khác nhau, không mâu thuẫn.
+- **Nhánh `claude/customers-duplicate-check` (mục 14) đã merge vào `master`** trước khi merge nhánh `claude/prompt-08-equipment-form` (mục 13) — 2 nhánh phát triển độc lập, không phụ thuộc nhau, README này là bản merge đầy đủ của cả 2.
