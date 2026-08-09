@@ -7,7 +7,7 @@
 ## TRẠNG THÁI TỔNG QUAN
 **Phase hiện tại:** Phase 1 — CRM & Nền móng  
 **Tuần hiện tại:** Tuần 3 — CRUD Thiết bị  
-**Cập nhật lần cuối:** 07/08/2026
+**Cập nhật lần cuối:** 08/08/2026
 
 ---
 
@@ -27,7 +27,7 @@
 
 ## 🔄 ĐANG LÀM
 
-- [ ] **[PROMPT-08]** Form thêm/sửa thiết bị (gắn với KH, màu trạng thái hạn)
+- [ ] **[PROMPT-09]** Trang chi tiết thiết bị + lịch sử KĐ
 
 ---
 
@@ -65,7 +65,7 @@
 
 ### Tuần 3: CRUD Thiết bị
 - [x] **[PROMPT-07]** Màn hình danh sách thiết bị (lọc theo loại, trạng thái hạn)
-- [ ] **[PROMPT-08]** Form thêm/sửa thiết bị (gắn với KH, màu trạng thái hạn)
+- [x] **[PROMPT-08]** Form thêm/sửa thiết bị (gắn với KH, màu trạng thái hạn)
 - [ ] **[PROMPT-09]** Trang chi tiết thiết bị + lịch sử KĐ
 
 ### Tuần 4: Dashboard
@@ -116,6 +116,9 @@
 | PROMPT-03 | Auth + phân quyền | ✅ Xong | 2 role admin/inspector, RLS đầy đủ, đã merge master |
 | PROMPT-04 | Danh sách khách hàng | ✅ Xong | Route /customers (không phải /dashboard/customers), mã KH tự sinh tăng dần, RoleGate ẩn nút Thêm theo role |
 | PROMPT-07 | Danh sách thiết bị (toàn hệ thống) | ✅ Xong | /equipment JOIN customers, tìm 3 trường (tên/mã/tên KH), lọc Loại+KH kết hợp; component <ExpiryIndicator> tách dùng chung với trang chi tiết KH; nút Thêm/Sửa cho cả admin+inspector (route đích placeholder); phát hiện equipment_insert_admin chỉ cho admin — cần sửa ở PROMPT-08; đã merge master (PR #5) |
+| PROMPT-08 | Form thêm/sửa thiết bị | ✅ Xong | Mã TB tự sinh qua DB trigger (TB-<số KH 3 chữ số>-<số TB 3 chữ số>); status tự tính lại từ expiry_date qua trigger, không set trực tiếp từ form; migration 0006 (RLS INSERT equipment cho admin+inspector) + 0007 (trigger sinh mã + tính status); đã merge master (PR #7) |
+| PROMPT-08b | Badge "Ngừng sử dụng" hiển thị đúng | ✅ Xong | Sửa <ExpiryIndicator> nhận thêm status để hiện badge xám khi inactive |
+| PROMPT-08c | Chặn trùng KH (MST cứng, tên mềm) + MST bắt buộc cho Doanh nghiệp | ✅ Xong | Migration customers_tax_code_unique_idx (partial unique index); dialog cảnh báo trùng tên; validation MST bắt buộc động theo Loại KH; đã merge master |
 | ... | ... | ... | |
 
 ---
