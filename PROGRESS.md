@@ -6,8 +6,8 @@
 
 ## TRẠNG THÁI TỔNG QUAN
 **Phase hiện tại:** Phase 1 — CRM & Nền móng  
-**Tuần hiện tại:** Tuần 3 — CRUD Thiết bị  
-**Cập nhật lần cuối:** 08/08/2026
+**Tuần hiện tại:** Tuần 4 — Dashboard  
+**Cập nhật lần cuối:** 11/08/2026
 
 ---
 
@@ -27,7 +27,7 @@
 
 ## 🔄 ĐANG LÀM
 
-- [ ] **[PROMPT-09]** Trang chi tiết thiết bị + lịch sử KĐ
+- [ ] **[PROMPT-12]** Nút soạn tin nhắn Zalo qua Claude AI
 
 ---
 
@@ -63,14 +63,14 @@
 - [x] **[PROMPT-05]** Form thêm/sửa khách hàng (validation đầy đủ)
 - [x] **[PROMPT-06]** Trang chi tiết khách hàng (4 tab)
 
-### Tuần 3: CRUD Thiết bị
+### Tuần 3: CRUD Thiết bị — ✅ HOÀN THÀNH
 - [x] **[PROMPT-07]** Màn hình danh sách thiết bị (lọc theo loại, trạng thái hạn)
 - [x] **[PROMPT-08]** Form thêm/sửa thiết bị (gắn với KH, màu trạng thái hạn)
-- [ ] **[PROMPT-09]** Trang chi tiết thiết bị + lịch sử KĐ
+- [x] **[PROMPT-09]** Trang chi tiết thiết bị + lịch sử KĐ
 
 ### Tuần 4: Dashboard
-- [ ] **[PROMPT-10]** Dashboard 4 widget chính
-- [ ] **[PROMPT-11]** Widget cảnh báo hạn KĐ (đỏ/vàng/xanh)
+- [x] **[PROMPT-10]** Dashboard 4 widget chính
+- [x] ~~**[PROMPT-11]**~~ Widget cảnh báo hạn KĐ (đỏ/vàng/xanh) — **đã gộp vào Widget 1 của PROMPT-10** (đếm 3 màu + danh sách 5 thiết bị hạn gần nhất, tính qua `getExpiryStatus()`), không cần làm PROMPT-11 riêng nữa
 - [ ] **[PROMPT-12]** Nút soạn tin nhắn Zalo qua Claude AI
 
 ### Tuần 5-6: Hoàn thiện
@@ -119,6 +119,8 @@
 | PROMPT-08 | Form thêm/sửa thiết bị | ✅ Xong | Mã TB tự sinh qua DB trigger (TB-<số KH 3 chữ số>-<số TB 3 chữ số>); status tự tính lại từ expiry_date qua trigger, không set trực tiếp từ form; migration 0006 (RLS INSERT equipment cho admin+inspector) + 0007 (trigger sinh mã + tính status); đã merge master (PR #7) |
 | PROMPT-08b | Badge "Ngừng sử dụng" hiển thị đúng | ✅ Xong | Sửa <ExpiryIndicator> nhận thêm status để hiện badge xám khi inactive |
 | PROMPT-08c | Chặn trùng KH (MST cứng, tên mềm) + MST bắt buộc cho Doanh nghiệp | ✅ Xong | Migration customers_tax_code_unique_idx (partial unique index); dialog cảnh báo trùng tên; validation MST bắt buộc động theo Loại KH; đã merge master |
+| PROMPT-09 | Trang chi tiết thiết bị + lịch sử KĐ | ✅ Xong | 1 trang dài cuộn xuống (không tab); dialog "+ Thêm bản ghi kiểm định" (admin+inspector) upload file PDF/JPG/PNG vào bucket Storage private `inspection-files`, xem qua signed URL ngắn hạn; trigger DB đồng bộ equipment.expiry_date/last_inspection_date khi thêm lịch sử có hạn mới; migration 0009; đã merge master (PR #8) |
+| PROMPT-10 | Dashboard 4 widget chính | ✅ Xong | Thay `/dashboard` placeholder; Widget 1 (Cảnh báo hạn KĐ) gộp luôn phần đáng lẽ là PROMPT-11 riêng — đếm 3 màu + top 5 hạn gần nhất; MỌI phân loại đỏ/vàng/xanh dùng `getExpiryStatus(expiry_date)`, không dùng cột `equipment.status` (status không phân biệt được đỏ/vàng); Widget 2/3 dùng `count()` Supabase; Widget 4 vẽ thanh ngang bằng Tailwind thuần (không thêm chart lib); có bộ test Playwright (`e2e/prompt-10-dashboard.spec.ts`, 10/10 pass) đăng nhập qua magic link + route nội bộ `/api/test-login` (chặn 2 lớp: NODE_ENV + secret header `E2E_TEST_LOGIN_SECRET` chỉ có trong `.env.local`, không đặt trên Vercel); đã merge master |
 | ... | ... | ... | |
 
 ---
