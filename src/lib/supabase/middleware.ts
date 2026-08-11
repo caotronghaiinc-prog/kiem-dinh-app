@@ -1,9 +1,12 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-// Route duy nhất không cần đăng nhập. Mọi route khác đều bị chặn nếu chưa
-// có session hợp lệ.
-const PUBLIC_PATHS = ["/login"];
+// Route không cần đăng nhập. Mọi route khác đều bị chặn nếu chưa có session
+// hợp lệ. "/api/test-login" chỉ dùng cho Playwright test chạy local (route
+// tự trả 404 khi NODE_ENV=production, xem src/app/api/test-login/route.ts)
+// -- phải public ở middleware vì mục đích của nó CHÍNH LÀ tạo session cho 1
+// request chưa đăng nhập, nên không thể yêu cầu đã đăng nhập từ trước.
+const PUBLIC_PATHS = ["/login", "/api/test-login"];
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
