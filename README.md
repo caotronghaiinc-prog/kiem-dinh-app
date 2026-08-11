@@ -450,12 +450,88 @@ create unique index if not exists customers_tax_code_unique_idx
 - Label "Mã số thuế" tự hiện dấu `*` đỏ ngay khi đổi Loại khách hàng sang "Doanh nghiệp" trong form (dùng `form.watch("type")`), không cần đợi submit.
 - **Không xung đột với tính năng chặn trùng MST ở trên** — 2 việc chạy độc lập, tuần tự: zod validate (kể cả rule MST bắt buộc mới này) chạy trước tiên qua `zodResolver`; chỉ khi validate pass, `onSubmit` mới chạy tới bước kiểm tra trùng. Tác dụng phụ tự nhiên (không phải bug): trước đây 1 khách hàng Doanh nghiệp có thể để trống MST và né được luôn bước kiểm tra trùng MST (vì check trùng chỉ chạy `if (values.tax_code)`); giờ MST bắt buộc với Doanh nghiệp nên bước kiểm tra trùng MST sẽ luôn chạy cho nhóm khách hàng này.
 
+## 15. Trang chi tiết thiết bị (PROMPT-09)
+
+Route `/equipment/[id]` — 1 trang dài cuộn xuống (không chia tab, khác trang chi tiết khách hàng), mọi role đã đăng nhập xem được. Id không tồn tại → dùng `.maybeSingle()`, hiện "Không tìm thấy thiết bị" + nút quay lại, không throw lỗi 500.
+
+### Chạy migration `0009_inspection_attachment_and_equipment_sync.sql` trên Supabase (bắt buộc, phải chạy tay)
+
+Sandbox Claude Code không gọi được `supabase.co` nên không tự chạy migration được. Vào **SQL Editor**, copy toàn bộ nội dung file, dán và **Run** (chạy sau `0001`-`0008`):
+
+```sql
+-- 1. Cột attachment_url
+alter table inspection_history
+  add column attachment_url text;
+
+-- 2. Trigger đồng bộ equipment sau khi thêm lịch sử kiểm định
+create or replace function public.sync_equipment_after_inspection()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.new_expiry_date is not null then
+    update equipment
+      set expiry_date = new.new_expiry_date,
+          last_inspection_date = new.inspection_date
+      where id = new.equipment_id;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists after_inspection_history_insert_sync_equipment on inspection_history;
+create trigger after_inspection_history_insert_sync_equipment
+  after insert on inspection_history
+  for each row execute function public.sync_equipment_after_inspection();
+
+-- 3. Storage bucket "inspection-files" + RLS
+insert into storage.buckets (id, name, public)
+values ('inspection-files', 'inspection-files', false)
+on conflict (id) do nothing;
+
+create policy "inspection_files_insert_authenticated"
+  on storage.objects for insert
+  with check (bucket_id = 'inspection-files' and auth.role() = 'authenticated');
+
+create policy "inspection_files_select_authenticated"
+  on storage.objects for select
+  using (bucket_id = 'inspection-files' and auth.role() = 'authenticated');
+```
+
+**Quan trọng — bucket Storage tạo được luôn bằng SQL, không cần vào Storage UI riêng**: `storage.buckets` chỉ là 1 bảng Postgres bình thường, insert trực tiếp vào đó (như trên) là đủ để tạo bucket `inspection-files` — không cần bấm "New bucket" trên Supabase Dashboard. Nếu vì lý do nào đó lệnh insert lỗi (vd tài khoản Supabase không đủ quyền chạy trên schema `storage` — hiếm gặp với vai trò owner project), fallback là vào **Storage** trên Dashboard → **New bucket** → tên `inspection-files`, để **Public bucket = tắt (OFF)** — rồi chạy phần còn lại của migration (bỏ đoạn `insert into storage.buckets`) như bình thường.
+
+### Cách hoạt động
+
+- **Header**: mã TB + tên thiết bị làm tiêu đề, `<ExpiryIndicator>` (dùng lại từ PROMPT-07), tên khách hàng bấm vào điều hướng `/customers/[customer_id]`, nút "Sửa" cho cả admin + inspector.
+- **Thông tin chung**: label-value 2 cột desktop/1 cột mobile, field rỗng hiện "Chưa có thông tin". `specifications` là cột `jsonb` nhưng form PROMPT-08 luôn ghi/đọc dạng chuỗi JSON scalar (vd `"Công suất 500kg"`) nên hiển thị y hệt text thường, không cần `JSON.parse`.
+- **Lịch sử kiểm định**: liệt kê `inspection_history` JOIN `profiles` lấy tên KĐV, sắp `inspection_date` giảm dần. Nút "+ Thêm bản ghi kiểm định" (cho cả admin + inspector, RLS `inspection_history_insert_admin_inspector` đã có sẵn từ migration `0002` — không cần migration RLS mới) mở dialog: Ngày KĐ (mặc định hôm nay) + Kết quả bắt buộc, Số biên bản/Hạn mới/Ghi chú/File đính kèm không bắt buộc, người kiểm định tự lấy từ `auth.getUser()` — không cho chọn tay.
+- **Đồng bộ thiết bị**: khi thêm bản ghi có `new_expiry_date`, trigger DB (`sync_equipment_after_inspection`, mục 3 ở migration trên) tự cập nhật `equipment.expiry_date` + `last_inspection_date`. Trigger `compute_equipment_status()` (đã có từ migration `0007`) tự chạy tiếp theo UPDATE này nên `status`/màu badge luôn khớp ngay — không tính lại ở phía client. Không nhập `new_expiry_date` → không đổi gì. Trigger chỉ chạy khi **thêm mới**, không chạy khi sửa/xóa lịch sử sau này (ngoài phạm vi PROMPT-09).
+- **File đính kèm**: bucket Storage `inspection-files` **private** (`public = false`), RLS chỉ cho user đã đăng nhập upload/đọc. Cột `attachment_url` thực chất lưu **đường dẫn object trong bucket** (vd `<equipment_id>/<uuid>.pdf`), KHÔNG lưu URL public cố định — xem file qua **signed URL** tạo tại thời điểm bấm "Xem file" (hết hạn sau 10 phút), mở tab mới để trình duyệt tự hiển thị (PDF xem trực tiếp, ảnh hiện preview). Validate phía client: chỉ nhận `.pdf/.jpg/.jpeg/.png`, tối đa 10MB, báo lỗi tiếng Việt rõ ràng nếu vi phạm. File chỉ lưu trữ, KHÔNG tự động đọc/điền nội dung (OCR để dành M3 Phase 2).
+- Nút "Sửa"/click dòng-card ở `/equipment` (PROMPT-07) đã trỏ đúng `/equipment/[id]` và `/equipment/[id]/edit` từ trước — không cần sửa gì thêm ở PROMPT-09.
+
+### Quyết định kỹ thuật tự chọn (chưa nói rõ trong yêu cầu gốc)
+
+- Signed URL thay vì public URL: yêu cầu ghi "không public hoàn toàn" nên chọn bucket private + signed URL ngắn hạn (10 phút) thay vì bật `public = true` cho bucket — an toàn hơn nhưng cần 1 round-trip gọi `createSignedUrl()` mỗi lần bấm "Xem file" thay vì link tĩnh.
+- Tên file lưu trong Storage: dùng `<equipment_id>/<uuid ngẫu nhiên>.<ext>` thay vì giữ nguyên tên gốc — tránh vấn đề ký tự có dấu/khoảng trắng trong tên file tiếng Việt khi làm storage key, và tránh trùng tên giữa các lần upload.
+- Nếu insert `inspection_history` thất bại SAU KHI đã upload file thành công, file đó thành "mồ côi" trong bucket (không tự xóa lại) — chấp nhận được với quy mô nội bộ ~10 người dùng, không xây cơ chế rollback 2 bước cho trường hợp hiếm này.
+- Trigger đồng bộ equipment chỉ gắn `AFTER INSERT` (đúng yêu cầu "khi thêm lịch sử"), không gắn `AFTER UPDATE` — sửa/xóa 1 bản ghi lịch sử đã có sẽ không tự đồng bộ lại `equipment.expiry_date`.
+
+### Test trang chi tiết thiết bị
+
+1. Vào `/equipment/[id]` với 1 thiết bị có sẵn → hiện đủ Thông tin chung + Lịch sử kiểm định (hoặc empty state nếu chưa có lịch sử).
+2. Thêm bản ghi kiểm định có nhập Hạn kiểm định mới → sau khi lưu, phần Thông tin chung cập nhật Hạn kiểm định + Ngày KĐ gần nhất ngay, màu badge (`<ExpiryIndicator>`) đổi theo hạn mới.
+3. Thêm bản ghi KHÔNG nhập Hạn kiểm định mới → Hạn kiểm định thiết bị giữ nguyên như cũ.
+4. Upload file PDF và file ảnh (JPG/PNG) khi thêm bản ghi → lưu thành công, quay lại danh sách Lịch sử bấm "Xem file" mở đúng file ở tab mới.
+5. Thử chọn file quá 10MB hoặc sai định dạng (vd `.docx`) → bị chặn ngay ở form, báo lỗi tiếng Việt rõ ràng, không cho submit.
+6. Đăng nhập cả admin và inspector → cả 2 đều thấy nút "+ Thêm bản ghi kiểm định" và thêm/upload thành công.
+7. Vào `/equipment/<id-không-tồn-tại>` → hiện "Không tìm thấy thiết bị", không crash/500.
+
 ## Ghi chú
 
 - App nội bộ ~10 người dùng, ưu tiên đơn giản/dễ bảo trì hơn là tối ưu quy mô lớn.
 - Role `accountant`/`office` đã khai báo trong `check constraint` của `profiles` nhưng CHƯA có policy RLS riêng — sẽ bổ sung khi có người dùng thật thuộc 2 role này.
 - Đếm "Số thiết bị" dùng Supabase nested-aggregate (`equipment(count)`) — đúng theo tài liệu Supabase, nhưng sandbox Claude Code không gọi được `supabase.co` nên chưa tự chạy thử được với dữ liệu thật; cần bạn xác nhận qua Preview URL.
-- Toàn bộ luồng thêm/sửa khách hàng (PROMPT-05), trang chi tiết (PROMPT-06), đổi quyền inspector cho `customers`/`equipment` (mục 11, 13), danh sách thiết bị (mục 12), form thiết bị (mục 13), và kiểm tra trùng khách hàng (mục 14) cũng chưa tự test được bằng dữ liệu thật vì lý do trên — cần xác nhận qua Preview URL theo các checklist tương ứng.
+- Toàn bộ luồng thêm/sửa khách hàng (PROMPT-05), trang chi tiết (PROMPT-06), đổi quyền inspector cho `customers`/`equipment` (mục 11, 13), danh sách thiết bị (mục 12), form thiết bị (mục 13), kiểm tra trùng khách hàng (mục 14), và trang chi tiết thiết bị (mục 15) cũng chưa tự test được bằng dữ liệu thật vì lý do trên — cần xác nhận qua Preview URL theo các checklist tương ứng.
 - **Màu badge trạng thái khách hàng**: PROMPT-06 yêu cầu Tiềm năng=xám/Ngừng hoạt động=đỏ nhạt, nhưng PROMPT-04 (đã merge master) đã chốt Tiềm năng=vàng/Ngừng hoạt động=xám. Đã giữ nguyên bảng màu cũ (`src/lib/customers/status.ts`) để nhất quán giữa trang danh sách và trang chi tiết thay vì làm 2 màu khác nhau cho cùng 1 trạng thái — nếu bạn muốn đổi theo màu mới, nói mình sửa 1 chỗ trong `status.ts` là áp dụng cho cả 2 trang.
 - **Danh sách thiết bị (mục 12) chưa có phân trang** — yêu cầu PROMPT-07 không nhắc tới phân trang (khác với `/customers` ở PROMPT-04 có phân trang 20/trang). Với quy mô ~10 người dùng hiện tại không đáng ngại, nhưng nếu tổng số thiết bị toàn hệ thống lớn dần theo thời gian, nên cân nhắc thêm phân trang giống `/customers` ở một prompt sau.
 - **Cột `specifications` là kiểu `jsonb`** trong DB nhưng form dùng textarea (text tự do) theo đúng yêu cầu PROMPT-08 — Supabase/PostgREST tự nhận text thường gửi lên cho cột jsonb và lưu thành 1 chuỗi JSON hợp lệ (JSON string scalar), đọc lại cũng tự động thành string bình thường ở 2 đầu, không cần code parse/serialize thêm.
