@@ -23,12 +23,24 @@ export function createAdminClient() {
   });
 }
 
+function getTestLoginSecret(): string {
+  const secret = process.env.E2E_TEST_LOGIN_SECRET;
+  if (!secret) {
+    throw new Error(
+      "Thiếu E2E_TEST_LOGIN_SECRET trong .env.local -- cần để gọi /api/test-login (route yêu cầu header x-test-login-secret khớp biến này, xem src/app/api/test-login/route.ts)."
+    );
+  }
+  return secret;
+}
+
 /**
  * Đăng nhập trong Playwright mà KHÔNG cần biết mật khẩu thật: dùng service
  * role tạo magic link (admin.generateLink), lấy token_hash rồi điều hướng
- * tới route nội bộ /api/test-login (chỉ tồn tại ngoài production) để route
- * đó verify + set cookie phiên đăng nhập đúng cách @supabase/ssr đang dùng
- * trong toàn bộ app (không tự dựng cookie thủ công, tránh sai định dạng).
+ * tới route nội bộ /api/test-login (chặn 2 lớp: NODE_ENV !== production
+ * VÀ header x-test-login-secret khớp E2E_TEST_LOGIN_SECRET -- biến này chỉ
+ * có trong .env.local, không bao giờ đặt trên Vercel) để route đó verify +
+ * set cookie phiên đăng nhập đúng cách @supabase/ssr đang dùng trong toàn
+ * bộ app (không tự dựng cookie thủ công, tránh sai định dạng).
  */
 export async function loginAs(
   page: Page,
@@ -46,5 +58,12 @@ export async function loginAs(
   }
 
   const url = `/api/test-login?token_hash=${encodeURIComponent(data.properties.hashed_token)}&redirect=${encodeURIComponent(redirectTo)}`;
+
+  // Chỉ gắn header bí mật cho đúng request này rồi gỡ ngay -- tránh gửi
+  // kèm secret trên mọi request khác của context (setExtraHTTPHeaders áp
+  // dụng cho cả context, không phải 1 request đơn lẻ).
+  const context = page.context();
+  await context.setExtraHTTPHeaders({ "x-test-login-secret": getTestLoginSecret() });
   await page.goto(url);
+  await context.setExtraHTTPHeaders({});
 }

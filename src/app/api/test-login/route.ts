@@ -9,14 +9,26 @@ import { createClient } from "@/lib/supabase/server";
  * mật khẩu thật của tài khoản test -- tránh phải lưu mật khẩu tài khoản
  * thật vào code/CI.
  *
- * Chặn cứng ở production: route này chỉ có tác dụng khi đã có sẵn 1
- * token_hash hợp lệ (vốn chỉ tạo được bằng SUPABASE_SERVICE_ROLE_KEY), nên
- * không phải lỗ hổng cho phép đăng nhập tùy ý -- nhưng vẫn chặn hẳn ở
- * production cho chắc, đúng tinh thần "test-only".
+ * Chặn 2 lớp độc lập, không lớp nào tự đủ:
+ * 1. NODE_ENV === "production" -> 404. `next build`/`next start` chỉ set
+ *    NODE_ENV mặc định NẾU chưa có sẵn trong shell (xem node_modules/next/
+ *    dist/bin/next) -- nên nếu 1 máy nào đó lỡ chạy build/start với
+ *    NODE_ENV bị set sai từ trước, lớp này KHÔNG đảm bảo chặn được.
+ * 2. Header `x-test-login-secret` phải khớp E2E_TEST_LOGIN_SECRET -- biến
+ *    này CHỈ được đặt trong .env.local, KHÔNG BAO GIỜ đặt trên Vercel hay
+ *    bất kỳ môi trường production/preview nào. Nếu biến này không tồn tại
+ *    (đúng trạng thái trên mọi deployment thật) thì route luôn 404 dù
+ *    NODE_ENV có bị lệch thế nào đi nữa -- đây là lớp chặn thực sự đáng
+ *    tin cậy, lớp (1) chỉ là phòng thủ thêm.
  */
 export async function GET(request: NextRequest) {
-  if (process.env.NODE_ENV === "production") {
-    return NextResponse.json({ error: "Not available in production" }, { status: 404 });
+  const testLoginSecret = process.env.E2E_TEST_LOGIN_SECRET;
+  if (
+    process.env.NODE_ENV === "production" ||
+    !testLoginSecret ||
+    request.headers.get("x-test-login-secret") !== testLoginSecret
+  ) {
+    return NextResponse.json({ error: "Not available" }, { status: 404 });
   }
 
   const { searchParams, origin } = new URL(request.url);
