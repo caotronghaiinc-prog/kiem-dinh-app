@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getCurrentUserProfile } from "@/lib/auth/get-current-user-profile";
 import { LogoutButton } from "@/components/auth/logout-button";
+import { GlobalSearch } from "@/components/search/global-search";
 import type { UserRole } from "@/lib/types/profile";
 
 const ROLE_LABELS: Record<UserRole, string> = {
@@ -39,6 +40,7 @@ export default async function DashboardLayout({
             </Link>
           </nav>
         </div>
+        <GlobalSearch />
         <div className="flex items-center gap-3 text-sm">
           {profile && (
             <span className="text-muted-foreground">
