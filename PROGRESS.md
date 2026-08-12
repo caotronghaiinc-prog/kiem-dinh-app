@@ -27,7 +27,7 @@
 
 ## 🔄 ĐANG LÀM
 
-- [ ] **[PROMPT-13]** Tìm kiếm toàn hệ thống
+- [ ] **[PROMPT-14]** Responsive mobile
 
 ---
 
@@ -74,7 +74,7 @@
 - [x] **[PROMPT-12]** Nút soạn tin nhắn Zalo qua AI — dùng **OpenAI** (ngoại lệ riêng cho tính năng này, xem ghi chú bên dưới), không phải Claude API như tên gọi gốc trong kế hoạch
 
 ### Tuần 5-6: Hoàn thiện
-- [ ] **[PROMPT-13]** Tìm kiếm toàn hệ thống
+- [x] **[PROMPT-13]** Tìm kiếm toàn hệ thống
 - [ ] **[PROMPT-14]** Responsive mobile
 - [ ] **[PROMPT-15]** Kiểm tra phân quyền 4 vai trò
 
@@ -124,6 +124,7 @@
 | PROMPT-09 | Trang chi tiết thiết bị + lịch sử KĐ | ✅ Xong | 1 trang dài cuộn xuống (không tab); dialog "+ Thêm bản ghi kiểm định" (admin+inspector) upload file PDF/JPG/PNG vào bucket Storage private `inspection-files`, xem qua signed URL ngắn hạn; trigger DB đồng bộ equipment.expiry_date/last_inspection_date khi thêm lịch sử có hạn mới; migration 0009; đã merge master (PR #8) |
 | PROMPT-10 | Dashboard 4 widget chính | ✅ Xong | Thay `/dashboard` placeholder; Widget 1 (Cảnh báo hạn KĐ) gộp luôn phần đáng lẽ là PROMPT-11 riêng — đếm 3 màu + top 5 hạn gần nhất; MỌI phân loại đỏ/vàng/xanh dùng `getExpiryStatus(expiry_date)`, không dùng cột `equipment.status` (status không phân biệt được đỏ/vàng); Widget 2/3 dùng `count()` Supabase; Widget 4 vẽ thanh ngang bằng Tailwind thuần (không thêm chart lib); có bộ test Playwright (`e2e/prompt-10-dashboard.spec.ts`, 10/10 pass) đăng nhập qua magic link + route nội bộ `/api/test-login` (chặn 2 lớp: NODE_ENV + secret header `E2E_TEST_LOGIN_SECRET` chỉ có trong `.env.local`, không đặt trên Vercel); đã merge master |
 | PROMPT-12 | Nút soạn tin nhắn Zalo qua AI | ✅ Xong | Ở header `/customers/[id]`, chỉ hiện khi có ≥1 thiết bị đỏ/vàng (`getExpiryStatus`, loại trừ thiết bị inactive); dialog gọi `/api/customers/[id]/draft-zalo-message` → `draftZaloMessage()` (`src/lib/ai/draft-message.ts`) — điểm DUY NHẤT gọi SDK provider, dùng **OpenAI gpt-4o-mini** làm ngoại lệ tạm thời (không phải Claude API); nội dung sửa được, nút Copy, không lưu DB; Playwright mock ở tầng route API nội bộ (không mock được `api.openai.com` trực tiếp vì lệnh gọi chạy server-side trong Route Handler, `page.route()` không chặn được request đó) — `e2e/prompt-12-zalo-message.spec.ts`, 4/4 pass; đã merge master. **Cần làm thủ công**: thêm `OPENAI_API_KEY` thật vào `.env.local` + Vercel Environment Variables. |
+| PROMPT-13 | Tìm kiếm toàn hệ thống | ✅ Xong | `<GlobalSearch>` trong header dùng chung (`(dashboard)/layout.tsx`), hiện ở mọi trang; debounce 300ms → `GET /api/search` chạy song song (`Promise.all`) `customers` (company_name/code/phone) + `equipment` (name/code), mỗi nhóm tối đa 5 kết quả + `count:"exact"` để biết tổng, "Xem tất cả X kết quả" tái dùng `?q=` đã có sẵn ở `/customers` và `/equipment`; mobile thu gọn thành icon kính lúp mở overlay full-width (dùng 1 `<input>`/1 state chung, chỉ đổi class responsive, không tách 2 component); đóng dropdown khi click ra ngoài/Escape/đổi route; `e2e/prompt-13-global-search.spec.ts` 7 test mới, tổng 21/21 pass; đã merge master. |
 | ... | ... | ... | |
 
 ---
