@@ -6,7 +6,7 @@
 
 ## TRẠNG THÁI TỔNG QUAN
 **Phase hiện tại:** Phase 1 — CRM & Nền móng  
-**Tuần hiện tại:** Tuần 4 — Dashboard  
+**Tuần hiện tại:** Tuần 5-6 — Hoàn thiện  
 **Cập nhật lần cuối:** 11/08/2026
 
 ---
@@ -27,7 +27,7 @@
 
 ## 🔄 ĐANG LÀM
 
-- [ ] **[PROMPT-12]** Nút soạn tin nhắn Zalo qua Claude AI
+- [ ] **[PROMPT-13]** Tìm kiếm toàn hệ thống
 
 ---
 
@@ -68,10 +68,10 @@
 - [x] **[PROMPT-08]** Form thêm/sửa thiết bị (gắn với KH, màu trạng thái hạn)
 - [x] **[PROMPT-09]** Trang chi tiết thiết bị + lịch sử KĐ
 
-### Tuần 4: Dashboard
+### Tuần 4: Dashboard — ✅ HOÀN THÀNH
 - [x] **[PROMPT-10]** Dashboard 4 widget chính
 - [x] ~~**[PROMPT-11]**~~ Widget cảnh báo hạn KĐ (đỏ/vàng/xanh) — **đã gộp vào Widget 1 của PROMPT-10** (đếm 3 màu + danh sách 5 thiết bị hạn gần nhất, tính qua `getExpiryStatus()`), không cần làm PROMPT-11 riêng nữa
-- [ ] **[PROMPT-12]** Nút soạn tin nhắn Zalo qua Claude AI
+- [x] **[PROMPT-12]** Nút soạn tin nhắn Zalo qua AI — dùng **OpenAI** (ngoại lệ riêng cho tính năng này, xem ghi chú bên dưới), không phải Claude API như tên gọi gốc trong kế hoạch
 
 ### Tuần 5-6: Hoàn thiện
 - [ ] **[PROMPT-13]** Tìm kiếm toàn hệ thống
@@ -104,6 +104,8 @@
 - RLS phần "chặn xóa" mới xác nhận qua đọc policy, chưa test trực quan bằng UI thật (vì UI CRUD chưa có) — sẽ verify lại khi làm PROMPT-04/05
 - 2 tài khoản test: caotronghai.inc@gmail.com (admin), caotronghai.incosaf@gmail.com (inspector)
 - **Phân quyền `customers` đã đổi** (migration `0005_customers_insert_inspector.sql`): Admin CRUD toàn quyền. Inspector: chỉ **Tạo mới** được, KHÔNG Sửa/Xóa (kể cả bản ghi tự tạo). Accountant/Office: chưa triển khai policy riêng, để sau. Chi tiết + câu SQL chạy tay ở README mục 11.
+- **PROMPT-12 dùng OpenAI, không phải Claude API** — đây là NGOẠI LỆ chỉ áp dụng cho tính năng soạn tin nhắn Zalo (API key OpenAI mua tạm để test). Mọi tính năng AI khác của dự án (M3 soạn biên bản, Phase 2...) vẫn giữ nguyên kế hoạch gốc dùng Claude API. Code đã tách riêng lệnh gọi provider vào `src/lib/ai/draft-message.ts` để sau này đổi sang Claude chỉ cần sửa 1 file này.
+- **⚠️ Cần làm thủ công**: biến `OPENAI_API_KEY` mới thêm khung (rỗng) vào `.env.local`/`.env.example` — phải tự lấy key thật tại platform.openai.com rồi điền vào `.env.local` để test local, VÀ thêm vào Vercel (Project Settings → Environment Variables) để chạy được trên production/preview. Khác với `E2E_TEST_LOGIN_SECRET` (biến đó KHÔNG được đặt trên Vercel).
 
 ---
 
@@ -121,6 +123,7 @@
 | PROMPT-08c | Chặn trùng KH (MST cứng, tên mềm) + MST bắt buộc cho Doanh nghiệp | ✅ Xong | Migration customers_tax_code_unique_idx (partial unique index); dialog cảnh báo trùng tên; validation MST bắt buộc động theo Loại KH; đã merge master |
 | PROMPT-09 | Trang chi tiết thiết bị + lịch sử KĐ | ✅ Xong | 1 trang dài cuộn xuống (không tab); dialog "+ Thêm bản ghi kiểm định" (admin+inspector) upload file PDF/JPG/PNG vào bucket Storage private `inspection-files`, xem qua signed URL ngắn hạn; trigger DB đồng bộ equipment.expiry_date/last_inspection_date khi thêm lịch sử có hạn mới; migration 0009; đã merge master (PR #8) |
 | PROMPT-10 | Dashboard 4 widget chính | ✅ Xong | Thay `/dashboard` placeholder; Widget 1 (Cảnh báo hạn KĐ) gộp luôn phần đáng lẽ là PROMPT-11 riêng — đếm 3 màu + top 5 hạn gần nhất; MỌI phân loại đỏ/vàng/xanh dùng `getExpiryStatus(expiry_date)`, không dùng cột `equipment.status` (status không phân biệt được đỏ/vàng); Widget 2/3 dùng `count()` Supabase; Widget 4 vẽ thanh ngang bằng Tailwind thuần (không thêm chart lib); có bộ test Playwright (`e2e/prompt-10-dashboard.spec.ts`, 10/10 pass) đăng nhập qua magic link + route nội bộ `/api/test-login` (chặn 2 lớp: NODE_ENV + secret header `E2E_TEST_LOGIN_SECRET` chỉ có trong `.env.local`, không đặt trên Vercel); đã merge master |
+| PROMPT-12 | Nút soạn tin nhắn Zalo qua AI | ✅ Xong | Ở header `/customers/[id]`, chỉ hiện khi có ≥1 thiết bị đỏ/vàng (`getExpiryStatus`, loại trừ thiết bị inactive); dialog gọi `/api/customers/[id]/draft-zalo-message` → `draftZaloMessage()` (`src/lib/ai/draft-message.ts`) — điểm DUY NHẤT gọi SDK provider, dùng **OpenAI gpt-4o-mini** làm ngoại lệ tạm thời (không phải Claude API); nội dung sửa được, nút Copy, không lưu DB; Playwright mock ở tầng route API nội bộ (không mock được `api.openai.com` trực tiếp vì lệnh gọi chạy server-side trong Route Handler, `page.route()` không chặn được request đó) — `e2e/prompt-12-zalo-message.spec.ts`, 4/4 pass; đã merge master. **Cần làm thủ công**: thêm `OPENAI_API_KEY` thật vào `.env.local` + Vercel Environment Variables. |
 | ... | ... | ... | |
 
 ---
