@@ -2,11 +2,13 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserProfile } from "@/lib/auth/get-current-user-profile";
+import { getExpiryStatus } from "@/lib/utils/expiry-status";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CUSTOMER_STATUS_CONFIG } from "@/lib/customers/status";
 import type { CustomerRecord } from "@/lib/types/customer";
 import { CustomerDetailTabs } from "./customer-detail-tabs";
+import { DraftZaloDialog } from "./draft-zalo-dialog";
 import type { EquipmentRow, InspectionRow } from "./types";
 
 export default async function CustomerDetailPage({
@@ -54,6 +56,14 @@ export default async function CustomerDetailPage({
   const status =
     CUSTOMER_STATUS_CONFIG[customer.status as keyof typeof CUSTOMER_STATUS_CONFIG] ??
     CUSTOMER_STATUS_CONFIG.potential;
+  // Nút "Soạn tin nhắn Zalo" chỉ hiện khi có >=1 thiết bị đỏ/vàng -- tính
+  // qua getExpiryStatus(expiry_date), không dùng cột status (status không
+  // phân biệt được đỏ/vàng). Thiết bị đã "Ngừng sử dụng" không tính.
+  const hasAlertEquipment = equipment.some((item) => {
+    if (item.status === "inactive") return false;
+    const color = getExpiryStatus(item.expiry_date).color;
+    return color === "red" || color === "yellow";
+  });
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-6 p-8">
@@ -73,11 +83,14 @@ export default async function CustomerDetailPage({
             {status.label}
           </Badge>
         </div>
-        {isAdmin && (
-          <Button asChild variant="outline">
-            <Link href={`/customers/${customer.id}/edit`}>Sửa</Link>
-          </Button>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {hasAlertEquipment && <DraftZaloDialog customerId={customer.id} />}
+          {isAdmin && (
+            <Button asChild variant="outline">
+              <Link href={`/customers/${customer.id}/edit`}>Sửa</Link>
+            </Button>
+          )}
+        </div>
       </div>
 
       <CustomerDetailTabs
