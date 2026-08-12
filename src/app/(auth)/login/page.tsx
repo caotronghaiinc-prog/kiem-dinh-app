@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useState } from "react";
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -70,8 +71,9 @@ function LoginForm() {
 
   return (
     <Card className="w-full max-w-sm">
-      <CardHeader>
-        <CardTitle>Đăng nhập INCERT AI OS</CardTitle>
+      <CardHeader className="items-center text-center">
+        <Image src="/logo.png" alt="INCERT" width={160} height={53} priority className="mb-2" />
+        <CardTitle>Đăng nhập</CardTitle>
         <CardDescription>Nhập email và mật khẩu để tiếp tục.</CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>

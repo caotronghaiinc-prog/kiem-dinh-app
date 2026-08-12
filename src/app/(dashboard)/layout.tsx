@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { getCurrentUserProfile } from "@/lib/auth/get-current-user-profile";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { GlobalSearch } from "@/components/search/global-search";
@@ -22,8 +23,8 @@ export default async function DashboardLayout({
     <div className="min-h-screen">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b px-6 py-3">
         <div className="flex items-center gap-6">
-          <Link href="/dashboard" className="font-semibold">
-            INCERT AI OS
+          <Link href="/dashboard" className="shrink-0">
+            <Image src="/logo.png" alt="INCERT" width={108} height={36} priority />
           </Link>
           <nav className="flex items-center gap-4 text-sm text-muted-foreground">
             <Link href="/dashboard" className="hover:text-foreground">
