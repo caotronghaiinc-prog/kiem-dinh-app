@@ -31,11 +31,12 @@ function sanitizeSearchTerm(term: string): string {
   return term.replace(/[,()%]/g, " ").trim();
 }
 
-export default async function CustomersPage({
-  searchParams,
-}: {
-  searchParams: { [key: string]: string | string[] | undefined };
-}) {
+export default async function CustomersPage(
+  props: {
+    searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const q = firstParam(searchParams.q).trim();
   const rawStatus = firstParam(searchParams.status);
   const status: StatusFilter = (VALID_STATUSES as readonly string[]).includes(rawStatus)

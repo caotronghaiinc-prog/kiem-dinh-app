@@ -26,11 +26,12 @@ function sanitizeSearchTerm(term: string): string {
   return term.replace(/[,()%]/g, " ").trim();
 }
 
-export default async function EquipmentPage({
-  searchParams,
-}: {
-  searchParams: { [key: string]: string | string[] | undefined };
-}) {
+export default async function EquipmentPage(
+  props: {
+    searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const q = firstParam(searchParams.q).trim();
   const typeFilter = firstParam(searchParams.type).trim();
   const customerIdFilter = firstParam(searchParams.customerId).trim();

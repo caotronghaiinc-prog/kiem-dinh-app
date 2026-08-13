@@ -11,11 +11,12 @@ import { CustomerDetailTabs } from "./customer-detail-tabs";
 import { DraftZaloDialog } from "./draft-zalo-dialog";
 import type { EquipmentRow, InspectionRow } from "./types";
 
-export default async function CustomerDetailPage({
-  params,
-}: {
-  params: { id: string };
-}) {
+export default async function CustomerDetailPage(
+  props: {
+    params: Promise<{ id: string }>;
+  }
+) {
+  const params = await props.params;
   const supabase = await createClient();
 
   const [{ data: customer }, { data: equipmentData }, { data: inspectionData }, profile] =

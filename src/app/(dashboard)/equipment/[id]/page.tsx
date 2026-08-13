@@ -25,11 +25,12 @@ function InfoField({ label, value }: { label: string; value: string | null }) {
   );
 }
 
-export default async function EquipmentDetailPage({
-  params,
-}: {
-  params: { id: string };
-}) {
+export default async function EquipmentDetailPage(
+  props: {
+    params: Promise<{ id: string }>;
+  }
+) {
+  const params = await props.params;
   const supabase = await createClient();
 
   const [{ data: equipmentData }, { data: historyData }, profile] = await Promise.all([
