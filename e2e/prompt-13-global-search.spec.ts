@@ -127,7 +127,11 @@ test.describe("PROMPT-13: Tìm kiếm toàn hệ thống", () => {
     await page.getByTestId("global-search-input").fill(CUSTOMER_TERM);
     await expect(page.getByTestId("global-search-dropdown")).toBeVisible();
 
-    await page.getByRole("heading", { name: "Tổng quan" }).click();
+    // Ô tìm kiếm giờ full-width ở hàng riêng nên dropdown có thể che cả
+    // nội dung trang bên dưới (vd tiêu đề H1) tùy số kết quả -- click vào
+    // 1 điểm chắc chắn nằm ngoài dropdown: góc trên-trái header (hàng nav,
+    // luôn ở TRÊN hàng tìm kiếm nên không bao giờ bị dropdown che).
+    await page.mouse.click(10, 10);
     await expect(page.getByTestId("global-search-dropdown")).toHaveCount(0);
 
     // Gõ lại rồi thử đóng bằng Escape.
@@ -148,22 +152,19 @@ test.describe("PROMPT-13: Tìm kiếm toàn hệ thống", () => {
     await expect(page.getByTestId("global-search-customer-result")).toHaveCount(1);
   });
 
-  test("responsive mobile: thu gọn thành icon, bấm vào mở overlay full-width", async ({ page }) => {
+  test("responsive mobile: ô tìm kiếm luôn hiện sẵn dạng input full-width, không còn icon thu gọn", async ({
+    page,
+  }) => {
     await page.setViewportSize({ width: 375, height: 812 });
     await loginAs(page, ADMIN_EMAIL);
     await page.goto("/dashboard");
 
-    await expect(page.getByTestId("global-search-mobile-trigger")).toBeVisible();
-    await expect(page.getByTestId("global-search-input")).toBeHidden();
-
-    await page.getByTestId("global-search-mobile-trigger").click();
+    // Input hiện sẵn ngay từ đầu -- không còn nút icon kính lúp riêng.
+    await expect(page.getByTestId("global-search-mobile-trigger")).toHaveCount(0);
     await expect(page.getByTestId("global-search-input")).toBeVisible();
 
     await page.getByTestId("global-search-input").fill(CUSTOMER_TERM);
     await expect(page.getByTestId("global-search-dropdown")).toBeVisible();
     await expect(page.getByTestId("global-search-customer-result")).toHaveCount(1);
-
-    await page.getByTestId("global-search-mobile-close").click();
-    await expect(page.getByTestId("global-search-input")).toBeHidden();
   });
 });
