@@ -7,7 +7,7 @@
 ## TRẠNG THÁI TỔNG QUAN
 **Phase hiện tại:** Phase 1 — CRM & Nền móng  
 **Tuần hiện tại:** Tuần 5-6 — Hoàn thiện  
-**Cập nhật lần cuối:** 11/08/2026
+**Cập nhật lần cuối:** 13/08/2026
 
 ---
 
@@ -27,7 +27,7 @@
 
 ## 🔄 ĐANG LÀM
 
-- [ ] **[PROMPT-14]** Responsive mobile
+- [ ] **[PROMPT-15]** Kiểm tra phân quyền 4 vai trò + rà soát bảo mật OWASP
 
 ---
 
@@ -76,8 +76,8 @@
 ### Tuần 5-6: Hoàn thiện
 - [x] **[PROMPT-13]** Tìm kiếm toàn hệ thống
 - [x] Logo + màu thương hiệu chính thức (bổ sung, không phải PROMPT đánh số gốc) — xem ghi chú bên dưới
-- [ ] **[PROMPT-14]** Responsive mobile
-- [ ] **[PROMPT-15]** Kiểm tra phân quyền 4 vai trò
+- [x] **[PROMPT-14]** Responsive mobile
+- [ ] **[PROMPT-15]** Kiểm tra phân quyền 4 vai trò + rà soát bảo mật OWASP
 
 ### Tuần 7-8: Deploy & Onboard
 - [ ] **[PROMPT-16]** Deploy Vercel production
@@ -128,6 +128,7 @@
 | PROMPT-12 | Nút soạn tin nhắn Zalo qua AI | ✅ Xong | Ở header `/customers/[id]`, chỉ hiện khi có ≥1 thiết bị đỏ/vàng (`getExpiryStatus`, loại trừ thiết bị inactive); dialog gọi `/api/customers/[id]/draft-zalo-message` → `draftZaloMessage()` (`src/lib/ai/draft-message.ts`) — điểm DUY NHẤT gọi SDK provider, dùng **OpenAI gpt-4o-mini** làm ngoại lệ tạm thời (không phải Claude API); nội dung sửa được, nút Copy, không lưu DB; Playwright mock ở tầng route API nội bộ (không mock được `api.openai.com` trực tiếp vì lệnh gọi chạy server-side trong Route Handler, `page.route()` không chặn được request đó) — `e2e/prompt-12-zalo-message.spec.ts`, 4/4 pass; đã merge master. **Cần làm thủ công**: thêm `OPENAI_API_KEY` thật vào `.env.local` + Vercel Environment Variables. |
 | PROMPT-13 | Tìm kiếm toàn hệ thống | ✅ Xong | `<GlobalSearch>` trong header dùng chung (`(dashboard)/layout.tsx`), hiện ở mọi trang; debounce 300ms → `GET /api/search` chạy song song (`Promise.all`) `customers` (company_name/code/phone) + `equipment` (name/code), mỗi nhóm tối đa 5 kết quả + `count:"exact"` để biết tổng, "Xem tất cả X kết quả" tái dùng `?q=` đã có sẵn ở `/customers` và `/equipment`; mobile thu gọn thành icon kính lúp mở overlay full-width (dùng 1 `<input>`/1 state chung, chỉ đổi class responsive, không tách 2 component); đóng dropdown khi click ra ngoài/Escape/đổi route; `e2e/prompt-13-global-search.spec.ts` 7 test mới, tổng 21/21 pass; đã merge master. |
 | Branding | Logo + màu thương hiệu chính thức | ✅ Xong | `public/logo.png` (wordmark, header + `/login`, `next/image`) + `src/app/icon.png` (crop vuông icon ngôi sao+"IN" làm favicon qua quy ước file metadata Next.js — wordmark ngang gốc quá dẹt để làm favicon); `globals.css` đổi 3 biến `--primary`/`--accent`/`--ring` sang bảng màu thương hiệu (#13577E làm primary — tương phản 7.8:1 với chữ trắng; #36B4E7 chỉ dùng cho ring + tint nhạt accent — tương phản riêng nó chỉ 2.38:1, không đạt WCAG AA nếu làm nền nút); không đổi bố cục/màu ngữ nghĩa; `e2e/branding-theme.spec.ts` xác nhận logo load được (không 404) + trang vẫn chạy sau khi đổi theme, tổng 24/24 pass; đã merge master. |
+| PROMPT-14 | Responsive mobile toàn hệ thống | ✅ Xong | Header dưới breakpoint `sm` thu gọn thành logo + icon tìm kiếm + hamburger (`<MobileNav>`, `src/components/nav/mobile-nav.tsx`) — nav ngang + tên user/Đăng xuất chuyển vào dropdown, đóng khi đổi route/click ra ngoài/Escape; sửa thêm: 2 dialog thiếu `max-h-[90vh] overflow-y-auto` (Zalo, cảnh báo trùng tên KH) có thể tràn dọc màn hình thấp; nút icon-only (đóng dialog, trigger tìm kiếm mobile) tăng lên ~44px vùng chạm; dialog dùng `w-[calc(100%-2rem)]` thay `w-full` để có lề 2 bên trên mobile thay vì sát mép; **phát hiện + sửa 1 regression do chính PROMPT này gây ra**: thêm `relative` vào `<header>` cho hamburger khiến dropdown `<GlobalSearch>` (đang có `sm:static`) bị lạc vị trí ở desktop — sửa thành `sm:relative`; `e2e/prompt-14-responsive-mobile.spec.ts` (375×667, kiểm tra scrollWidth mọi trang + hamburger + 2 dialog tiêu biểu), tổng 29/29 pass; tăng Playwright test timeout lên 60s (test tràn ngang chạy 9 route liên tiếp, lần đầu Next dev compile route mới có thể >30s, không phải bug); đã merge master. |
 | ... | ... | ... | |
 
 ---
