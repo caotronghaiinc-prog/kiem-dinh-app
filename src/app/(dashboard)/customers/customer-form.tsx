@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { logAndGetSafeMessage } from "@/lib/errors";
 import { useToast } from "@/hooks/use-toast";
 import {
   Form,
@@ -62,7 +63,12 @@ function mapCustomerError(message: string): string {
   if (message.includes("customers_tax_code_unique_idx") || message.includes("duplicate key")) {
     return "Mã số thuế này đã được đăng ký cho một khách hàng khác. Vui lòng kiểm tra lại.";
   }
-  return message;
+  // OWASP RULE-20: không hiện nguyên văn lỗi Postgres/PostgREST cho người
+  // dùng -- log ra console để debug, chỉ hiện message chung.
+  return logAndGetSafeMessage(
+    new Error(message),
+    "Có lỗi xảy ra khi lưu khách hàng. Vui lòng thử lại."
+  );
 }
 
 export function CustomerForm({ mode, customer }: CustomerFormProps) {
