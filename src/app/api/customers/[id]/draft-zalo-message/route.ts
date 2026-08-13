@@ -2,6 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getExpiryStatus } from "@/lib/utils/expiry-status";
 import { draftZaloMessage } from "@/lib/ai/draft-message";
+import { logAndGetSafeMessage } from "@/lib/errors";
+import { checkRateLimit } from "@/lib/rate-limit";
+
+// OWASP RULE-16: route này gọi OpenAI (tốn phí thực tế mỗi lần gọi) nên giới
+// hạn chặt hơn nhiều so với các route chỉ đọc dữ liệu -- đủ dùng cho quy
+// trình soạn tin nhắn bình thường (soạn, chỉnh, soạn lại vài lần) nhưng chặn
+// được việc gọi lặp lại liên tục gây tốn chi phí.
+const RATE_LIMIT = 10;
+const RATE_LIMIT_WINDOW_MS = 5 * 60_000;
 
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
   const supabase = await createClient();
@@ -11,6 +20,18 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: "Chưa đăng nhập." }, { status: 401 });
+  }
+
+  const { allowed, retryAfterSeconds } = checkRateLimit(
+    `draft-zalo-message:${user.id}`,
+    RATE_LIMIT,
+    RATE_LIMIT_WINDOW_MS
+  );
+  if (!allowed) {
+    return NextResponse.json(
+      { error: "Soạn tin nhắn quá nhiều lần, vui lòng thử lại sau ít phút." },
+      { status: 429, headers: { "Retry-After": String(retryAfterSeconds) } }
+    );
   }
 
   const { data: customer, error: customerError } = await supabase
@@ -61,7 +82,13 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 
     return NextResponse.json({ message });
   } catch (error) {
-    const description = error instanceof Error ? error.message : "Không rõ lỗi.";
-    return NextResponse.json({ error: `Soạn tin nhắn thất bại: ${description}` }, { status: 502 });
+    // OWASP RULE-20: không trả nguyên văn lỗi từ OpenAI SDK về client (có
+    // thể lộ chi tiết config/API key/nội bộ) -- log ở server, trả message
+    // chung.
+    const safeMessage = logAndGetSafeMessage(
+      error,
+      "Soạn tin nhắn thất bại, vui lòng thử lại."
+    );
+    return NextResponse.json({ error: safeMessage }, { status: 502 });
   }
 }

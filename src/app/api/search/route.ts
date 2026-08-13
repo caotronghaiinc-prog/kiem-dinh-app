@@ -1,9 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { checkRateLimit } from "@/lib/rate-limit";
 import type { SearchResults } from "@/components/search/types";
 
 const RESULT_LIMIT = 5;
 const MIN_QUERY_LENGTH = 2;
+const MAX_QUERY_LENGTH = 100;
+
+// OWASP RULE-16: search gõ-tới-đâu-tìm-tới-đó nên cần giới hạn rộng rãi,
+// chỉ để chặn lạm dụng bất thường (vd script gọi lặp), không ảnh hưởng UX
+// gõ tìm bình thường.
+const RATE_LIMIT = 60;
+const RATE_LIMIT_WINDOW_MS = 60_000;
 
 // Postgrest .or() dùng dấu phẩy/ngoặc làm ký tự cú pháp, "%" là wildcard
 // ilike -- loại bỏ khỏi input người dùng để tránh phá vỡ filter (giống
@@ -29,8 +37,20 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Chưa đăng nhập." }, { status: 401 });
   }
 
+  const { allowed, retryAfterSeconds } = checkRateLimit(
+    `search:${user.id}`,
+    RATE_LIMIT,
+    RATE_LIMIT_WINDOW_MS
+  );
+  if (!allowed) {
+    return NextResponse.json(
+      { error: "Tìm kiếm quá nhiều, vui lòng thử lại sau ít phút." },
+      { status: 429, headers: { "Retry-After": String(retryAfterSeconds) } }
+    );
+  }
+
   const { searchParams } = new URL(request.url);
-  const term = sanitizeSearchTerm(searchParams.get("q") ?? "");
+  const term = sanitizeSearchTerm(searchParams.get("q") ?? "").slice(0, MAX_QUERY_LENGTH);
 
   if (term.length < MIN_QUERY_LENGTH) {
     return NextResponse.json(EMPTY_RESULTS);

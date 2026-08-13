@@ -10,7 +10,7 @@ Stack: Next.js 14 (App Router) + TypeScript + Tailwind CSS + shadcn/ui + Supabas
 src/
 ├── app/
 │   ├── (auth)/login/          # Trang đăng nhập (Supabase Auth)
-│   ├── (dashboard)/test-connection/  # Trang xác nhận kết nối Supabase
+│   ├── (dashboard)/           # Các trang sau khi đăng nhập (dashboard, customers, equipment...)
 │   ├── layout.tsx
 │   └── globals.css
 ├── components/ui/             # shadcn/ui components
@@ -31,7 +31,7 @@ npm install
 npm run dev
 ```
 
-Mở [http://localhost:3000](http://localhost:3000). Nếu chưa cấu hình `.env.local`, trang `/test-connection` sẽ hiển thị trạng thái lỗi rõ ràng (không crash).
+Mở [http://localhost:3000](http://localhost:3000) rồi vào `/login`. Nếu chưa cấu hình `.env.local`, Supabase Auth sẽ báo lỗi kết nối rõ ràng khi bấm đăng nhập (không crash).
 
 ## 2. Tạo project trên Supabase
 
@@ -62,7 +62,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
 SUPABASE_SERVICE_ROLE_KEY=eyJ...
 ```
 
-Sau đó chạy lại `npm run dev` và mở `/test-connection` — nếu thấy badge **"Thành công"** và số bản ghi `customers = 0` là pipeline đã chạy đúng.
+Sau đó chạy lại `npm run dev`, tạo 1 tài khoản test (bước 5 bên dưới) và đăng nhập ở `/login` — nếu vào được `/dashboard` là pipeline đã chạy đúng.
 
 ## 5. Tạo tài khoản đăng nhập thử
 
@@ -76,7 +76,7 @@ Trang `/login` dùng `supabase.auth.signInWithPassword`. Để test, vào Supaba
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
    - `SUPABASE_SERVICE_ROLE_KEY`
-4. Bấm **Deploy**. Sau khi build xong, mở `https://<project>.vercel.app/test-connection` để xác nhận kết nối hoạt động trên production.
+4. Bấm **Deploy**. Sau khi build xong, mở `https://<project>.vercel.app/login` và đăng nhập để xác nhận kết nối hoạt động trên production.
 5. Từ lần sau, mỗi lần push lên nhánh chính, Vercel sẽ tự động deploy lại (CI/CD pipeline).
 
 ## 7. Auth + phân quyền (PROMPT-03)
@@ -125,7 +125,7 @@ Vào **SQL Editor** trên Supabase Dashboard, copy nội dung `supabase/migratio
 
 ## 8. Danh sách khách hàng (PROMPT-04)
 
-Route thực tế là **`/customers`**, không phải `/dashboard/customers` — dự án dùng route group `(dashboard)` nên các trang bên trong (`/dashboard`, `/test-connection`, `/customers`) đều nằm ở URL gốc, theo đúng tiền lệ đã có từ PROMPT-01/03 (vd `/test-connection` chứ không phải `/dashboard/test-connection`).
+Route thực tế là **`/customers`**, không phải `/dashboard/customers` — dự án dùng route group `(dashboard)` nên các trang bên trong (`/dashboard`, `/customers`, `/equipment`...) đều nằm ở URL gốc, theo đúng tiền lệ đã có từ PROMPT-01/03.
 
 Migration `supabase/migrations/0003_customer_code_sequence.sql` thiết lập:
 

@@ -17,7 +17,6 @@ const NAV_LINKS = [
   { href: "/dashboard", label: "Tổng quan" },
   { href: "/customers", label: "Khách hàng" },
   { href: "/equipment", label: "Thiết bị" },
-  { href: "/test-connection", label: "Kiểm tra kết nối" },
 ];
 
 export default async function DashboardLayout({

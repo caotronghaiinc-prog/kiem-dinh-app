@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { logAndGetSafeMessage } from "@/lib/errors";
 import { useToast } from "@/hooks/use-toast";
 import {
   Form,
@@ -45,7 +46,12 @@ function mapEquipmentError(message: string): string {
   if (message.includes("duplicate key") && message.includes("equipment_code")) {
     return "Mã thiết bị bị trùng do có người khác vừa tạo cùng lúc. Vui lòng thử lưu lại.";
   }
-  return message;
+  // OWASP RULE-20: không hiện nguyên văn lỗi Postgres/PostgREST cho người
+  // dùng -- log ra console để debug, chỉ hiện message chung.
+  return logAndGetSafeMessage(
+    new Error(message),
+    "Có lỗi xảy ra khi lưu thiết bị. Vui lòng thử lại."
+  );
 }
 
 export function EquipmentForm({ mode, equipment, customerOptions = [] }: EquipmentFormProps) {

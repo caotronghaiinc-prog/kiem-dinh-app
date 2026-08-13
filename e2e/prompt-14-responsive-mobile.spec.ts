@@ -117,7 +117,7 @@ test.describe("PROMPT-14: Responsive mobile toàn hệ thống", () => {
     }
   });
 
-  test("mobile: hamburger hiện đúng, mở menu đủ 4 link, click điều hướng đúng và đóng menu", async ({
+  test("mobile: hamburger hiện đúng, mở menu đủ 3 link, click điều hướng đúng và đóng menu", async ({
     page,
   }) => {
     await page.setViewportSize(MOBILE_VIEWPORT);
@@ -131,12 +131,13 @@ test.describe("PROMPT-14: Responsive mobile toàn hệ thống", () => {
     await page.getByTestId("mobile-nav-trigger").click();
     await expect(page.getByTestId("mobile-nav-menu")).toBeVisible();
 
+    // PROMPT-15: bỏ "Kiểm tra kết nối" (trang debug lộ thông tin cho mọi
+    // role, xem PROGRESS.md) -- menu giờ còn 3 link.
     const links = page.getByTestId("mobile-nav-link");
-    await expect(links).toHaveCount(4);
+    await expect(links).toHaveCount(3);
     await expect(links.nth(0)).toHaveText("Tổng quan");
     await expect(links.nth(1)).toHaveText("Khách hàng");
     await expect(links.nth(2)).toHaveText("Thiết bị");
-    await expect(links.nth(3)).toHaveText("Kiểm tra kết nối");
 
     await links.nth(1).click();
     await expect(page).toHaveURL(/\/customers$/);

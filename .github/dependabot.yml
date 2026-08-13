@@ -1,0 +1,10 @@
+# OWASP RULE-21 (Dependencies & Supply Chain): tự động mở PR khi có bản vá
+# cho package.json/package-lock.json, để không phải nhớ tự chạy `npm audit`
+# định kỳ bằng tay.
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10

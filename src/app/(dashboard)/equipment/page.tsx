@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserProfile } from "@/lib/auth/get-current-user-profile";
+import { logAndGetSafeMessage } from "@/lib/errors";
 import { RoleGate } from "@/components/auth/role-gate";
 import { Button } from "@/components/ui/button";
 import {
@@ -120,8 +121,10 @@ export default async function EquipmentPage({
       />
 
       {error ? (
+        // OWASP RULE-20: không hiện nguyên văn lỗi Postgres/PostgREST --
+        // log ở server, chỉ hiện message chung cho người dùng.
         <p className="text-sm text-destructive">
-          Không tải được danh sách thiết bị: {error.message}
+          {logAndGetSafeMessage(error, "Không tải được danh sách thiết bị. Vui lòng thử lại.")}
         </p>
       ) : equipment.length === 0 ? (
         <div className="flex flex-col items-center gap-3 rounded-md border border-dashed py-16 text-center">

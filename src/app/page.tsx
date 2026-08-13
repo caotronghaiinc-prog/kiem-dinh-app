@@ -14,9 +14,6 @@ export default function Home() {
         <Button asChild>
           <Link href="/login">Đăng nhập</Link>
         </Button>
-        <Button asChild variant="outline">
-          <Link href="/test-connection">Kiểm tra kết nối Supabase</Link>
-        </Button>
       </div>
     </main>
   );

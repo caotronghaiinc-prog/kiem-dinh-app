@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { logAndGetSafeMessage } from "@/lib/errors";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrentUserProfile } from "@/hooks/use-current-user-profile";
 import {
@@ -157,7 +158,7 @@ export function AddInspectionDialog({ equipmentId }: { equipmentId: string }) {
       toast({
         variant: "destructive",
         title: "Thêm bản ghi kiểm định thất bại",
-        description: error.message,
+        description: logAndGetSafeMessage(error, "Có lỗi xảy ra, vui lòng thử lại."),
       });
       return;
     }
