@@ -10,6 +10,11 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   retries: 0,
+  // Mặc định 30s đôi khi không đủ cho lần đầu Next dev compile on-demand
+  // 1 route chưa ai ghé (vd /customers/[id]/edit) -- nhất là những test
+  // điều hướng qua nhiều trang liên tiếp trong 1 test (PROMPT-14). Không
+  // liên quan tới tốc độ thật của app khi build production.
+  timeout: 60_000,
   reporter: "list",
   use: {
     baseURL: "http://localhost:3000",

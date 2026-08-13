@@ -67,7 +67,7 @@ export function DraftZaloDialog({ customerId }: { customerId: string }) {
           Soạn tin nhắn Zalo
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Soạn tin nhắn Zalo</DialogTitle>
         </DialogHeader>

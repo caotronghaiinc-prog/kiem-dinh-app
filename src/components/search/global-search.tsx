@@ -157,7 +157,7 @@ export function GlobalSearch() {
       <button
         type="button"
         onClick={openMobile}
-        className="rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground sm:hidden"
+        className="flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground sm:hidden"
         aria-label="Tìm kiếm"
         data-testid="global-search-mobile-trigger"
       >
@@ -167,7 +167,7 @@ export function GlobalSearch() {
       <div
         ref={containerRef}
         className={cn(
-          "relative sm:static sm:z-auto sm:block sm:w-64 sm:bg-transparent sm:p-0 lg:w-80",
+          "relative sm:relative sm:z-auto sm:block sm:w-64 sm:bg-transparent sm:p-0 lg:w-80",
           mobileOpen ? "fixed inset-0 z-50 block bg-background p-4" : "hidden"
         )}
         data-testid="global-search"
@@ -190,7 +190,7 @@ export function GlobalSearch() {
           <button
             type="button"
             onClick={() => setMobileOpen(false)}
-            className="shrink-0 rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground sm:hidden"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground sm:hidden"
             aria-label="Đóng tìm kiếm"
             data-testid="global-search-mobile-close"
           >
