@@ -4,11 +4,12 @@ import { createClient } from "@/lib/supabase/server";
 import { EquipmentForm } from "../../equipment-form";
 import type { EquipmentRecord } from "../../types";
 
-export default async function EditEquipmentPage({
-  params,
-}: {
-  params: { id: string };
-}) {
+export default async function EditEquipmentPage(
+  props: {
+    params: Promise<{ id: string }>;
+  }
+) {
+  const params = await props.params;
   await requireRole(["admin", "inspector"]);
 
   const supabase = await createClient();

@@ -12,7 +12,8 @@ import { checkRateLimit } from "@/lib/rate-limit";
 const RATE_LIMIT = 10;
 const RATE_LIMIT_WINDOW_MS = 5 * 60_000;
 
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = await createClient();
 
   const {

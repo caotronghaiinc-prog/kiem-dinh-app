@@ -4,11 +4,12 @@ import { createClient } from "@/lib/supabase/server";
 import { CustomerForm } from "../../customer-form";
 import type { CustomerRecord } from "@/lib/types/customer";
 
-export default async function EditCustomerPage({
-  params,
-}: {
-  params: { id: string };
-}) {
+export default async function EditCustomerPage(
+  props: {
+    params: Promise<{ id: string }>;
+  }
+) {
+  const params = await props.params;
   await requireRole(["admin"]);
 
   const supabase = await createClient();
