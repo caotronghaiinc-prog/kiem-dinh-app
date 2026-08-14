@@ -13,12 +13,15 @@ on:
 jobs:
   backup:
     runs-on: ubuntu-latest
+    # Supabase hiện chạy Postgres 17 -- pg_dump của apt-get trên ubuntu-latest
+    # là bản 16, và pg_dump từ chối chạy khi client cũ hơn server ("server
+    # version mismatch"). Dùng thẳng image postgres:17 chính thức để có
+    # pg_dump đúng phiên bản, khỏi cài thêm gì.
+    # Nếu sau này Supabase nâng lên major version mới hơn (vd Postgres 18),
+    # phải đổi tag image này tương ứng (vd postgres:18), nếu không sẽ lỗi
+    # lại y hệt "server version mismatch".
+    container: postgres:17
     steps:
-      - name: Install postgresql-client
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y postgresql-client
-
       - name: Dump database
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
