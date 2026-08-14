@@ -526,6 +526,33 @@ create policy "inspection_files_select_authenticated"
 6. Đăng nhập cả admin và inspector → cả 2 đều thấy nút "+ Thêm bản ghi kiểm định" và thêm/upload thành công.
 7. Vào `/equipment/<id-không-tồn-tại>` → hiện "Không tìm thấy thiết bị", không crash/500.
 
+## 16. Backup database tự động (PROMPT-16b)
+
+Supabase free tier không có automatic backup (chỉ có từ gói Pro trở lên — xem PROGRESS.md mục PROMPT-16). Workflow GitHub Actions `.github/workflows/db-backup.yml` chạy `pg_dump` hàng ngày để bù lại việc này.
+
+### Thiết lập (làm 1 lần, phải làm tay)
+
+1. Lấy connection string trực tiếp tới Postgres: Supabase Dashboard → **Project Settings → Database → Connection string** (chọn kiểu **URI**). Chỉ dùng **Direct connection** hoặc **Session pooler** (cổng `5432`) — **KHÔNG dùng Transaction pooler** (cổng `6543`): `pg_dump` không tương thích với transaction pooler, có thể lỗi hoặc dump thiếu dữ liệu.
+2. Vào GitHub repo → **Settings → Secrets and variables → Actions → New repository secret**.
+3. Đặt tên secret là `SUPABASE_DB_URL`, dán connection string đầy đủ (đã có sẵn mật khẩu database bên trong) làm giá trị.
+
+Workflow chạy tự động mỗi ngày lúc 19:00 UTC (~2:00 sáng giờ VN), hoặc bấm chạy tay: tab **Actions** → **Database backup** → **Run workflow**.
+
+### Tải file backup về khi cần
+
+1. Vào tab **Actions** trên GitHub → chọn workflow **Database backup** → chọn lần chạy muốn tải.
+2. Kéo xuống mục **Artifacts**, bấm vào `db-backup-<run_id>` để tải file `.zip` chứa `backup-YYYY-MM-DD.sql.gz`.
+3. Giải nén: file chỉ giữ lại **90 ngày** rồi GitHub tự xóa (`retention-days: 90`) — nếu cần lưu lâu hơn, tải về sớm và lưu ở nơi khác.
+
+### Restore từ file dump
+
+```bash
+gunzip backup-2026-08-14.sql.gz
+psql "$SUPABASE_DB_URL" -f backup-2026-08-14.sql
+```
+
+⚠️ Lệnh `psql` trên ghi đè trực tiếp vào database đích — chỉ chạy khi chắc chắn cần khôi phục (ví dụ trên 1 project Supabase mới/rỗng để kiểm tra file dump, hoặc khi có sự cố mất dữ liệu thật cần khôi phục). Không chạy nhầm vào database đang có dữ liệu thật đang chạy production nếu chỉ muốn xem thử nội dung.
+
 ## Ghi chú
 
 - App nội bộ ~10 người dùng, ưu tiên đơn giản/dễ bảo trì hơn là tối ưu quy mô lớn.

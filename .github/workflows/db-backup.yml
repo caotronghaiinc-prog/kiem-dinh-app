@@ -1,0 +1,35 @@
+name: Database backup
+
+# PROMPT-16b: Supabase free tier không có automatic backup (xem PROGRESS.md).
+# Workflow này tự pg_dump database hàng ngày, nén gzip, upload làm artifact.
+# Không commit file dump vào git -- chỉ lưu tạm 90 ngày trong Actions artifact.
+
+on:
+  schedule:
+    # 19:00 UTC = ~2:00 sáng giờ VN (UTC+7)
+    - cron: "0 19 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install postgresql-client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Dump database
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          FILENAME="backup-$(date +%F).sql"
+          pg_dump "$SUPABASE_DB_URL" --no-owner --no-privileges -f "$FILENAME"
+          gzip "$FILENAME"
+
+      - name: Upload backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-backup-${{ github.run_id }}
+          path: backup-*.sql.gz
+          retention-days: 90
