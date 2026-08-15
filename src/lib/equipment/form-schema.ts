@@ -6,6 +6,11 @@ const CURRENT_YEAR = new Date().getFullYear();
 // riêng (không thuộc nhóm nào). Dùng chuỗi tiếng Việt làm value luôn (giống
 // cách customers.type/source lưu ở PROMPT-05) vì cột equipment.type là text
 // tự do, không có check constraint.
+//
+// PROMPT-18: "Thiết bị nâng" tách thành 6 loại con -- mỗi loại sẽ có bộ
+// checklist kiểm định riêng (equipment_checklist_templates.equipment_type
+// phải khớp CHÍNH XÁC 1 trong 6 giá trị này). App chưa có dữ liệu thật nên
+// không cần migration đổi dữ liệu equipment.type cũ.
 export const EQUIPMENT_TYPE_GROUPS = [
   {
     label: "Nhóm KTAT",
@@ -13,7 +18,12 @@ export const EQUIPMENT_TYPE_GROUPS = [
       "Nồi hơi",
       "Bình áp lực",
       "Hệ thống ống áp lực",
-      "Thiết bị nâng",
+      "Thiết bị nâng - Cầu trục",
+      "Thiết bị nâng - Cần trục",
+      "Thiết bị nâng - Palăng",
+      "Thiết bị nâng - Tời",
+      "Thiết bị nâng - Vận thăng nâng hàng",
+      "Thiết bị nâng - Bàn nâng hàng",
       "Thang máy, thang cuốn",
       "Thiết bị vui chơi, cáp treo",
       "Thiết bị ATLĐ",

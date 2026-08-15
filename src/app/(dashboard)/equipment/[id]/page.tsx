@@ -51,6 +51,18 @@ export default async function EquipmentDetailPage(
     getCurrentUserProfile(),
   ]);
 
+  // PROMPT-19: loại thiết bị có checklist riêng (equipment_checklist_templates,
+  // pilot "Thiết bị nâng - Cầu trục") thì "+ Thêm bản ghi kiểm định" điều
+  // hướng sang /equipment/[id]/inspect thay vì mở AddInspectionDialog cũ.
+  const { data: checklistTemplates } = equipmentData?.type
+    ? await supabase
+        .from("equipment_checklist_templates")
+        .select("id")
+        .eq("equipment_type", equipmentData.type)
+        .limit(1)
+    : { data: null };
+  const hasChecklistTemplate = Boolean(checklistTemplates?.[0]);
+
   if (!equipmentData) {
     return (
       <div className="mx-auto flex max-w-2xl flex-col items-center gap-3 p-16 text-center">
@@ -128,7 +140,12 @@ export default async function EquipmentDetailPage(
         </div>
       </section>
 
-      <InspectionHistorySection equipmentId={equipment.id} history={history} canEdit={canEdit} />
+      <InspectionHistorySection
+        equipmentId={equipment.id}
+        history={history}
+        canEdit={canEdit}
+        hasChecklistTemplate={hasChecklistTemplate}
+      />
     </div>
   );
 }
