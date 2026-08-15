@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { ClipboardList } from "lucide-react";
 import {
   Table,
@@ -9,6 +10,7 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { INSPECTION_RESULT_CONFIG } from "@/lib/inspection/result";
 import { AttachmentLink } from "./attachment-link";
 import { AddInspectionDialog } from "./add-inspection-dialog";
@@ -23,16 +25,25 @@ export function InspectionHistorySection({
   equipmentId,
   history,
   canEdit,
+  hasChecklistTemplate,
 }: {
   equipmentId: string;
   history: InspectionHistoryDetailRow[];
   canEdit: boolean;
+  hasChecklistTemplate: boolean;
 }) {
   return (
     <section className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold">Lịch sử kiểm định</h2>
-        {canEdit && <AddInspectionDialog equipmentId={equipmentId} />}
+        {canEdit &&
+          (hasChecklistTemplate ? (
+            <Button asChild>
+              <Link href={`/equipment/${equipmentId}/inspect`}>+ Thêm bản ghi kiểm định</Link>
+            </Button>
+          ) : (
+            <AddInspectionDialog equipmentId={equipmentId} />
+          ))}
       </div>
 
       {history.length === 0 ? (
