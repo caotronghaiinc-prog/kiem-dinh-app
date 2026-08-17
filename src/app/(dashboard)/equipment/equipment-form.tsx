@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -34,6 +34,7 @@ import {
   EQUIPMENT_TYPE_OTHER,
   type EquipmentFormValues,
 } from "@/lib/equipment/form-schema";
+import { getEquipmentSpecFields } from "@/lib/equipment/spec-fields";
 import type { CustomerOption, EquipmentRecord } from "./types";
 
 interface EquipmentFormProps {
@@ -75,8 +76,23 @@ export function EquipmentForm({ mode, equipment, customerOptions = [] }: Equipme
       inspection_cycle: equipment?.inspection_cycle ? String(equipment.inspection_cycle) : "12",
       is_inactive: equipment?.status === "inactive",
       notes: equipment?.notes ?? "",
+      spec_values: equipment?.spec_values ?? {},
     },
   });
+
+  const selectedType = form.watch("type");
+  const specFields = getEquipmentSpecFields(selectedType);
+
+  // Đổi Loại thiết bị sang loại KHÔNG có field thông số có cấu trúc riêng
+  // (hoặc bỏ chọn) -- xóa spec_values cũ để tránh lưu nhầm dữ liệu của loại
+  // thiết bị trước đó dưới loại mới. Không ảnh hưởng lần mount đầu ở form
+  // sửa (specFields.length > 0 khi equipment đang có sẵn field).
+  useEffect(() => {
+    if (specFields.length === 0) {
+      form.setValue("spec_values", {});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedType]);
 
   async function onSubmit(values: EquipmentFormValues) {
     setSubmitting(true);
@@ -98,6 +114,7 @@ export function EquipmentForm({ mode, equipment, customerOptions = [] }: Equipme
       // expiry_date, trừ khi gửi đúng "inactive" thì được giữ nguyên.
       status: values.is_inactive ? "inactive" : "valid",
       notes: values.notes || null,
+      spec_values: values.spec_values ?? {},
     };
 
     const { error } =
@@ -322,6 +339,33 @@ export function EquipmentForm({ mode, equipment, customerOptions = [] }: Equipme
             )}
           />
         </div>
+
+        {specFields.length > 0 && (
+          <div className="flex flex-col gap-4">
+            <h3 className="text-sm font-semibold">Thông số kỹ thuật cầu trục</h3>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {specFields.map((f) => (
+                <FormField
+                  key={f.key}
+                  control={form.control}
+                  name={`spec_values.${f.key}` as `spec_values.${string}`}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        {f.label}
+                        {f.unit ? ` (${f.unit})` : ""}
+                      </FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              ))}
+            </div>
+          </div>
+        )}
 
         <FormField
           control={form.control}

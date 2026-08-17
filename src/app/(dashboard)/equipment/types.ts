@@ -38,6 +38,10 @@ export interface EquipmentRecord {
   inspection_cycle: number | null;
   status: string;
   notes: string | null;
+  // PROMPT-20: thông số kỹ thuật có cấu trúc theo loại thiết bị (jsonb) --
+  // xem src/lib/equipment/spec-fields.ts. Loại thiết bị chưa định nghĩa
+  // field thì luôn là {}.
+  spec_values: Record<string, string> | null;
   // Chỉ có khi fetch kèm join, dùng hiển thị read-only ở form sửa.
   customer?: { code: string; company_name: string } | null;
 }

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserProfile } from "@/lib/auth/get-current-user-profile";
 import { Button } from "@/components/ui/button";
 import { ExpiryIndicator } from "@/components/equipment/expiry-indicator";
+import { getEquipmentSpecFields } from "@/lib/equipment/spec-fields";
 import { InspectionHistorySection } from "./inspection-history-section";
 import type { EquipmentDetail, InspectionHistoryDetailRow } from "./types";
 
@@ -37,7 +38,7 @@ export default async function EquipmentDetailPage(
     supabase
       .from("equipment")
       .select(
-        "id, code, name, type, manufacturer, manufacture_year, serial_number, specifications, location, last_inspection_date, expiry_date, inspection_cycle, status, notes, customer_id, customer:customers(company_name)"
+        "id, code, name, type, manufacturer, manufacture_year, serial_number, specifications, location, last_inspection_date, expiry_date, inspection_cycle, status, notes, spec_values, customer_id, customer:customers(company_name)"
       )
       .eq("id", params.id)
       .maybeSingle(),
@@ -80,6 +81,7 @@ export default async function EquipmentDetailPage(
   const equipment = equipmentData as unknown as EquipmentDetail;
   const history = (historyData ?? []) as unknown as InspectionHistoryDetailRow[];
   const canEdit = profile?.role === "admin" || profile?.role === "inspector";
+  const specFields = getEquipmentSpecFields(equipment.type);
 
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-8 p-8">
@@ -127,6 +129,17 @@ export default async function EquipmentDetailPage(
           <InfoField label="Số serial" value={equipment.serial_number} />
           <InfoField label="Vị trí lắp đặt" value={equipment.location} />
           <InfoField label="Thông số kỹ thuật" value={equipment.specifications} />
+          {specFields.map((f) => {
+            const value = equipment.spec_values?.[f.key];
+            if (!value) return null;
+            return (
+              <InfoField
+                key={f.key}
+                label={f.unit ? `${f.label} (${f.unit})` : f.label}
+                value={value}
+              />
+            );
+          })}
           <InfoField
             label="Ngày kiểm định gần nhất"
             value={formatDate(equipment.last_inspection_date)}

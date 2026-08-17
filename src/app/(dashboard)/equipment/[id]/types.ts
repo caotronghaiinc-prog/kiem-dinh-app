@@ -15,6 +15,10 @@ export interface EquipmentDetail {
   inspection_cycle: number | null;
   status: string;
   notes: string | null;
+  // PROMPT-20: thông số kỹ thuật có cấu trúc theo loại thiết bị (jsonb) --
+  // xem src/lib/equipment/spec-fields.ts. Loại thiết bị chưa định nghĩa
+  // field thì luôn là {}.
+  spec_values: Record<string, string> | null;
   customer_id: string;
   // Quan hệ nhiều-1 (nhiều equipment -> 1 customer) nên Supabase trả về
   // object đơn, không phải mảng.
