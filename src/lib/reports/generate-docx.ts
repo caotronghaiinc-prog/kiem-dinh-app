@@ -24,6 +24,15 @@ function scaleToFit(width: number, height: number): [number, number] {
  * bản free không hỗ trợ getImage/getSize async ổn định, nên build sẵn
  * Map<storage_path, ArrayBuffer> + Map<storage_path, [w,h]> để getImage/
  * getSize (đồng bộ, do docxtemplater gọi) chỉ đọc từ map có sẵn.
+ *
+ * docxtemplater-image-module-free LUÔN đặt tên file nhúng là
+ * "image_generated_N.png" bất kể định dạng gốc (xem node_modules/
+ * docxtemplater-image-module-free/js/index.js, getNextImageName()) -- ảnh
+ * chụp hiện trường thường là JPEG (điện thoại), nếu đưa thẳng byte JPEG vào
+ * thì file .docx sẽ khai JPEG dưới đuôi .png, Word có thể không mở được.
+ * Vẽ lại ảnh (đã resize) lên OffscreenCanvas rồi xuất PNG thật qua
+ * convertToBlob({type:"image/png"}) để khớp đúng đuôi thư viện luôn gán --
+ * tận dụng luôn bước resize sẵn có, ảnh nhúng cũng nhẹ hơn vì đã downscale.
  */
 async function loadPhotoBuffers(storagePaths: string[]): Promise<{
   buffers: Map<string, ArrayBuffer>;
@@ -51,12 +60,20 @@ async function loadPhotoBuffers(storagePaths: string[]): Promise<{
       if (!response.ok) {
         throw new Error(`Không tải được ảnh: ${entry.path}`);
       }
-      const buffer = await response.arrayBuffer();
-      buffers.set(entry.path, buffer);
+      const originalBuffer = await response.arrayBuffer();
+      const bitmap = await createImageBitmap(new Blob([originalBuffer]));
+      const [width, height] = scaleToFit(bitmap.width, bitmap.height);
 
-      const bitmap = await createImageBitmap(new Blob([buffer]));
-      sizes.set(entry.path, scaleToFit(bitmap.width, bitmap.height));
+      const canvas = new OffscreenCanvas(width, height);
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("Không tạo được canvas để chuẩn hoá ảnh.");
+      ctx.drawImage(bitmap, 0, 0, width, height);
       bitmap.close();
+      const pngBlob = await canvas.convertToBlob({ type: "image/png" });
+      const pngBuffer = await pngBlob.arrayBuffer();
+
+      buffers.set(entry.path, pngBuffer);
+      sizes.set(entry.path, [width, height]);
     })
   );
 

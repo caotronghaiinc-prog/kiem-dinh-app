@@ -186,6 +186,7 @@ export function InspectChecklistForm({
 
   // ----- Kết luận -----
   const [kienNghi, setKienNghi] = useState("");
+  const [thoiHanKienNghi, setThoiHanKienNghi] = useState("");
   const [newExpiryDate, setNewExpiryDate] = useState("");
   const [soTem, setSoTem] = useState("");
   const [viTriTem, setViTriTem] = useState("");
@@ -364,6 +365,7 @@ export function InspectChecklistForm({
         .map((r) => ({ ten: r.ten.trim(), chuc_vu: r.chuc_vu.trim() || null })),
       dia_diem_lap_bien_ban: diaDiem.trim() || null,
       kien_nghi: kienNghi.trim() || null,
+      thoi_han_kien_nghi: thoiHanKienNghi.trim() || null,
       so_tem: soTem.trim() || null,
       vi_tri_tem: viTriTem.trim() || null,
       kiem_tra_ho_so:
@@ -742,6 +744,13 @@ export function InspectChecklistForm({
             <div className="flex flex-col gap-1">
               <label className="text-sm font-medium">Lý do không đạt / Kiến nghị *</label>
               <Textarea value={kienNghi} onChange={(e) => setKienNghi(e.target.value)} />
+            </div>
+          )}
+
+          {overallResult === "khong_dat" && (
+            <div className="flex flex-col gap-1">
+              <label className="text-sm font-medium">Thời hạn thực hiện kiến nghị</label>
+              <Input value={thoiHanKienNghi} onChange={(e) => setThoiHanKienNghi(e.target.value)} />
             </div>
           )}
 

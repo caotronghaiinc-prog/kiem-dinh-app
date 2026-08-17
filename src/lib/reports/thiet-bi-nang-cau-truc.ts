@@ -58,6 +58,7 @@ export interface ReportMetadata {
   nguoi_chung_kien?: ReportWitnessEntry[];
   dia_diem_lap_bien_ban?: string | null;
   kien_nghi?: string | null;
+  thoi_han_kien_nghi?: string | null;
   so_tem?: string | null;
   vi_tri_tem?: string | null;
   kiem_tra_ho_so?: { day_du: boolean; ly_do: string | null } | null;
@@ -253,16 +254,12 @@ export function buildThietBiNangCauTrucReportData(
   // "Thời gian kiểm định" -- suy luận từ vị trí trong mẫu (đứng ngay sau
   // "Địa chỉ lắp đặt", trước "Chứng kiến kiểm định") khớp với "Đã tiến
   // hành kiểm định:..." ở form gốc PROMPT-18 -- dùng ngày kiểm định của
-  // chính lần này, KHÔNG phải report_metadata.dia_diem_lap_bien_ban như
-  // gộp chung trong yêu cầu gốc. Đây là 1 diễn giải cần bạn xác nhận lại,
-  // xem báo cáo PROMPT-21.
+  // chính lần này, tách riêng khỏi dia_diem_lap (report_metadata xác nhận
+  // đây là 2 khái niệm khác nhau, không gộp chung như yêu cầu gốc).
   data.thoi_gian_kiem_dinh = formatDateVi(inspectionHistory.inspection_date);
   data.dia_diem_lap = metadata.dia_diem_lap_bien_ban ?? "";
   data.kien_nghi = metadata.kien_nghi ?? "";
-  // "Thời hạn thực hiện kiến nghị" -- tag có trong mẫu Word nhưng KHÔNG có
-  // trường nhập tương ứng ở PROMPT-19/19b (chỉ mới bổ sung vi_tri_tem ở
-  // PROMPT-21). Để trống tạm, cần bạn quyết định có bổ sung UI hay không.
-  data.thoi_han_kien_nghi = "";
+  data.thoi_han_kien_nghi = metadata.thoi_han_kien_nghi ?? "";
   data.so_tem = metadata.so_tem ?? "";
   data.vi_tri_tem = metadata.vi_tri_tem ?? "";
 
@@ -285,10 +282,9 @@ export function buildThietBiNangCauTrucReportData(
   data.hinh_thuc_kd_lan_sau = nextInspectionForm.hinh_thuc_kd_lan_sau;
   data.ly_do_rut_ngan = nextInspectionForm.ly_do_rut_ngan ?? "";
 
-  // Số đăng ký chứng nhận của tổ chức kiểm định -- KHÔNG có chỗ lưu giá
-  // trị thật trong hệ thống, và đây là số đăng ký thật của công ty (dữ
-  // liệu pháp lý) -- để trống, KHÔNG bịa số. Cần bạn cung cấp giá trị thật
-  // rồi mới hardcode hoặc thêm chỗ lưu phù hợp.
+  // Số đăng ký chứng nhận của tổ chức kiểm định -- xác nhận với Hải: chưa
+  // có số thật, để trống có chủ đích, kiểm định viên tự điền tay vào file
+  // Word trước khi nộp. Không cần thêm chỗ lưu.
   data.so_dang_ky_chung_nhan = "";
 
   // ----- Ảnh (tag {%anh} bên trong loop -- value = storage_path, dùng làm key tra map buffer/size) -----
