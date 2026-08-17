@@ -21,6 +21,12 @@ export interface EquipmentDetail {
   customer: { company_name: string } | null;
 }
 
+export interface InspectionPhotoRow {
+  id: string;
+  category: "tong_the" | "chi_tiet_khong_dat";
+  storage_path: string;
+}
+
 export interface InspectionHistoryDetailRow {
   id: string;
   inspection_date: string;
@@ -32,4 +38,6 @@ export interface InspectionHistoryDetailRow {
   // Quan hệ nhiều-1 (nhiều inspection_history -> 1 profiles) nên Supabase
   // trả về object đơn, không phải mảng.
   inspector: { full_name: string | null } | null;
+  // Quan hệ 1-nhiều (PROMPT-19b) -- Supabase trả về mảng.
+  photos: InspectionPhotoRow[];
 }

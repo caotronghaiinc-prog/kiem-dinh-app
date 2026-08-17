@@ -19,9 +19,12 @@ import {
 } from "@/lib/inspection/form-schema";
 import { RadioPillGroup, type RadioPillOption } from "./radio-pill-group";
 import { ChecklistItemCard, type ChecklistItemState } from "./checklist-item-card";
+import { PhotoUploadField } from "./photo-upload-field";
 import type { ChecklistItem, ChecklistResult, ChecklistTemplate, InspectEquipment } from "./types";
 
 type HinhThuc = "lan_dau" | "dinh_ky_hang_nam" | "dinh_ky" | "bat_thuong";
+type HoSoStatus = "day_du" | "khong_day_du";
+type PhotoCategory = "tong_the" | "chi_tiet_khong_dat";
 
 interface InspectorRow {
   ten: string;
@@ -50,8 +53,57 @@ const HINH_THUC_OPTIONS: readonly RadioPillOption<HinhThuc>[] = [
 const MAX_INSPECTORS = 2;
 const MAX_WITNESSES = 5;
 
+const HO_SO_OPTIONS: readonly RadioPillOption<HoSoStatus>[] = [
+  { value: "day_du", label: "Đầy đủ", activeClassName: "border-green-600 bg-green-100 text-green-800" },
+  {
+    value: "khong_day_du",
+    label: "Không đầy đủ",
+    activeClassName: "border-red-600 bg-red-100 text-red-800",
+  },
+];
+
+// Mẫu gốc (Phụ lục 1) có 3 dòng hồ sơ khác nhau tùy hình thức kiểm định --
+// vì "Hình thức kiểm định" đã chọn sẵn ở phần đầu form nên chỉ hiện đúng 1
+// dòng tương ứng, không hiện cả 3 như bản giấy.
+const HO_SO_LABELS: Record<HinhThuc, { tenHoSo: string; noiDung: string }> = {
+  lan_dau: {
+    tenHoSo: "Hồ sơ kỹ thuật thiết bị khi kiểm định lần đầu (Mục 8.1.1 QTKĐ 01:2026/BNV)",
+    noiDung: "Lý lịch thiết bị; Hồ sơ nghiệm thu lắp đặt; các hồ sơ khác",
+  },
+  dinh_ky_hang_nam: {
+    tenHoSo: "Hồ sơ kỹ thuật thiết bị khi kiểm định hằng năm, định kỳ (Mục 8.1.2 QTKĐ 01:2026/BNV)",
+    noiDung:
+      "Lý lịch thiết bị; BB kiểm định và GCN kiểm định lần trước; hồ sơ về quản lý sử dụng, vận hành, bảo dưỡng; các hồ sơ khác",
+  },
+  dinh_ky: {
+    tenHoSo: "Hồ sơ kỹ thuật thiết bị khi kiểm định hằng năm, định kỳ (Mục 8.1.2 QTKĐ 01:2026/BNV)",
+    noiDung:
+      "Lý lịch thiết bị; BB kiểm định và GCN kiểm định lần trước; hồ sơ về quản lý sử dụng, vận hành, bảo dưỡng; các hồ sơ khác",
+  },
+  bat_thuong: {
+    tenHoSo: "Hồ sơ kỹ thuật thiết bị khi kiểm định bất thường (Mục 8.1.3 QTKĐ 01:2026/BNV)",
+    noiDung: "Các hồ sơ theo quy định tại mục 8.1.3; BB kiểm định và GCN kiểm định lần trước",
+  },
+};
+
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+/** Xóa bù trừ inspection_history khi 1 bước ghi sau đó lỗi (không có
+ * transaction thật qua PostgREST). Trả về true nếu xóa thành công -- RLS
+ * DELETE inspection_history chỉ cấp cho admin (migration 0002) nên với
+ * inspector, lệnh này bị chặn (0 dòng, không phải lỗi) và trả về false. */
+async function compensateDeleteInspectionHistory(
+  supabase: ReturnType<typeof createClient>,
+  inspectionHistoryId: string
+): Promise<boolean> {
+  const { data: deleted } = await supabase
+    .from("inspection_history")
+    .delete()
+    .eq("id", inspectionHistoryId)
+    .select("id");
+  return Boolean(deleted && deleted.length > 0);
 }
 
 function makeInitialItemStates(items: ChecklistItem[]): Record<string, ChecklistItemState> {
@@ -120,6 +172,17 @@ export function InspectChecklistForm({
     if (!allResultsAnswered) return null;
     return items.some((item) => itemStates[item.id]?.result === "khong_dat") ? "khong_dat" : "dat";
   }, [items, itemStates, allResultsAnswered]);
+
+  // ----- Kiểm tra hồ sơ kỹ thuật -----
+  const [hoSoDayDu, setHoSoDayDu] = useState<boolean | null>(null);
+  const [hoSoLyDo, setHoSoLyDo] = useState("");
+
+  // ----- Ghi nhận khác -----
+  const [ghiNhanKhac, setGhiNhanKhac] = useState("");
+
+  // ----- Ảnh kiểm định (mục 8.5, bắt buộc) -----
+  const [overallPhotos, setOverallPhotos] = useState<File[]>([]);
+  const [defectPhotos, setDefectPhotos] = useState<File[]>([]);
 
   // ----- Kết luận -----
   const [kienNghi, setKienNghi] = useState("");
@@ -208,6 +271,21 @@ export function InspectChecklistForm({
       );
     }
 
+    if (hinhThuc) {
+      if (hoSoDayDu === null) {
+        errors.push("Vui lòng chọn Đầy đủ/Không đầy đủ cho phần kiểm tra hồ sơ kỹ thuật.");
+      } else if (hoSoDayDu === false && !hoSoLyDo.trim()) {
+        errors.push("Vui lòng nhập lý do không đạt cho phần kiểm tra hồ sơ kỹ thuật.");
+      }
+    }
+
+    if (overallPhotos.length === 0) {
+      errors.push("Vui lòng tải lên ít nhất 1 ảnh tổng thể thiết bị.");
+    }
+    if (overallResult === "khong_dat" && defectPhotos.length === 0) {
+      errors.push("Vui lòng tải lên ít nhất 1 ảnh chi tiết hạng mục không đạt.");
+    }
+
     if (overallResult === "khong_dat" && !kienNghi.trim()) {
       errors.push("Vui lòng nhập lý do không đạt / kiến nghị.");
     }
@@ -286,6 +364,11 @@ export function InspectChecklistForm({
       dia_diem_lap_bien_ban: diaDiem.trim() || null,
       kien_nghi: kienNghi.trim() || null,
       so_tem: soTem.trim() || null,
+      kiem_tra_ho_so:
+        hoSoDayDu === null
+          ? null
+          : { day_du: hoSoDayDu, ly_do: hoSoDayDu ? null : hoSoLyDo.trim() || null },
+      ghi_nhan_khac: ghiNhanKhac.trim() || null,
     };
 
     const { data: inserted, error: insertError } = await supabase
@@ -338,34 +421,67 @@ export function InspectChecklistForm({
       // Không có transaction thật (client gọi PostgREST trực tiếp, mỗi insert
       // là 1 request riêng) -- tự bù trừ bằng cách xóa lại dòng
       // inspection_history vừa tạo để không để lại bản ghi mồ côi không có
-      // checklist đi kèm.
-      //
-      // Lưu ý: RLS DELETE trên inspection_history chỉ cho admin (migration
-      // 0002) -- nếu người đang thao tác là inspector, lệnh xóa bù trừ này
-      // bị RLS chặn (trả về 0 dòng, không phải lỗi) và bản ghi mồ côi vẫn
-      // còn lại, cần admin vào xóa tay. Kiểm tra data trả về để báo đúng
-      // tình trạng thay vì giả vờ đã dọn sạch.
-      const { data: deleted } = await supabase
-        .from("inspection_history")
-        .delete()
-        .eq("id", inserted.id)
-        .select("id");
-
+      // checklist đi kèm (cascade xóa luôn mọi inspection_checklist_results/
+      // inspection_photos đã lỡ ghi được).
+      const deletedOk = await compensateDeleteInspectionHistory(supabase, inserted.id);
       setSubmitting(false);
-      if (deleted && deleted.length > 0) {
-        toast({
-          variant: "destructive",
-          title: "Lưu checklist thất bại",
-          description: "Đã hủy bản ghi kiểm định vừa tạo, vui lòng thử lại.",
-        });
-      } else {
-        toast({
-          variant: "destructive",
-          title: "Lưu checklist thất bại",
-          description:
-            "Bản ghi kiểm định gốc có thể vẫn còn trong hệ thống (không có quyền tự xóa). Vui lòng báo Admin kiểm tra.",
-        });
+      toast({
+        variant: "destructive",
+        title: "Lưu checklist thất bại",
+        description: deletedOk
+          ? "Đã hủy bản ghi kiểm định vừa tạo, vui lòng thử lại."
+          : "Bản ghi kiểm định gốc có thể vẫn còn trong hệ thống (không có quyền tự xóa). Vui lòng báo Admin kiểm tra.",
+      });
+      return;
+    }
+
+    // Ảnh kiểm định (mục 8.5, bắt buộc) -- upload từng file lên cùng bucket
+    // ATTACHMENT_BUCKET rồi insert batch vào inspection_photos. Lỗi ở bước
+    // này áp dụng lại đúng cách bù trừ như bước checklist ở trên.
+    const photosToUpload: { file: File; category: PhotoCategory }[] = [
+      ...overallPhotos.map((file) => ({ file, category: "tong_the" as const })),
+      ...defectPhotos.map((file) => ({ file, category: "chi_tiet_khong_dat" as const })),
+    ];
+
+    const uploadedPhotos: { storage_path: string; category: PhotoCategory }[] = [];
+    let photoStepFailed = false;
+
+    for (const { file, category } of photosToUpload) {
+      const dotIndex = file.name.lastIndexOf(".");
+      const ext = dotIndex >= 0 ? file.name.slice(dotIndex).toLowerCase() : "";
+      const path = `${equipment.id}/${inserted.id}/${category}-${crypto.randomUUID()}${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from(ATTACHMENT_BUCKET)
+        .upload(path, file, { contentType: file.type || undefined });
+
+      if (uploadError) {
+        photoStepFailed = true;
+        break;
       }
+      uploadedPhotos.push({ storage_path: path, category });
+    }
+
+    if (!photoStepFailed && uploadedPhotos.length > 0) {
+      const { error: photosError } = await supabase.from("inspection_photos").insert(
+        uploadedPhotos.map((p) => ({
+          inspection_history_id: inserted.id,
+          category: p.category,
+          storage_path: p.storage_path,
+        }))
+      );
+      if (photosError) photoStepFailed = true;
+    }
+
+    if (photoStepFailed) {
+      const deletedOk = await compensateDeleteInspectionHistory(supabase, inserted.id);
+      setSubmitting(false);
+      toast({
+        variant: "destructive",
+        title: "Lưu ảnh kiểm định thất bại",
+        description: deletedOk
+          ? "Đã hủy bản ghi kiểm định vừa tạo, vui lòng thử lại."
+          : "Bản ghi kiểm định gốc có thể vẫn còn trong hệ thống (không có quyền tự xóa). Vui lòng báo Admin kiểm tra.",
+      });
       return;
     }
 
@@ -481,6 +597,41 @@ export function InspectChecklistForm({
         </CardContent>
       </Card>
 
+      {/* Kiểm tra hồ sơ kỹ thuật -- chỉ hiện đúng 1 dòng theo hình thức KĐ đã chọn ở trên */}
+      {hinhThuc && (
+        <Card>
+          <CardContent className="flex flex-col gap-4 p-4 sm:p-6">
+            <h2 className="text-base font-semibold">Kiểm tra hồ sơ kỹ thuật</h2>
+
+            <div>
+              <p className="text-sm font-medium">{HO_SO_LABELS[hinhThuc].tenHoSo}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{HO_SO_LABELS[hinhThuc].noiDung}</p>
+            </div>
+
+            <RadioPillGroup
+              name="ho-so-day-du"
+              value={hoSoDayDu === null ? null : hoSoDayDu ? "day_du" : "khong_day_du"}
+              onChange={(v) => setHoSoDayDu(v === "day_du")}
+              options={HO_SO_OPTIONS}
+            />
+
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-muted-foreground">Đánh giá kết quả (tự động)</span>
+              <span className="text-sm">
+                {hoSoDayDu === null ? "—" : hoSoDayDu ? "Đạt" : "Không đạt"}
+              </span>
+            </div>
+
+            {hoSoDayDu === false && (
+              <div className="flex flex-col gap-1">
+                <label className="text-sm font-medium">Lý do không đạt *</label>
+                <Textarea value={hoSoLyDo} onChange={(e) => setHoSoLyDo(e.target.value)} />
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Checklist theo section */}
       {sections.map(([sectionName, sectionItems]) => {
         const filledCount = sectionItems.filter((i) => itemStates[i.id]?.result != null).length;
@@ -530,6 +681,35 @@ export function InspectChecklistForm({
           </Card>
         );
       })}
+
+      {/* Các ghi nhận khác -- tự do, không bắt buộc */}
+      <Card>
+        <CardContent className="flex flex-col gap-1 p-4 sm:p-6">
+          <label className="text-sm font-medium">Ghi nhận khác (nếu có)</label>
+          <Textarea value={ghiNhanKhac} onChange={(e) => setGhiNhanKhac(e.target.value)} />
+        </CardContent>
+      </Card>
+
+      {/* 3- Thu thập hình ảnh (mục 8.5, bắt buộc) */}
+      <Card>
+        <CardContent className="flex flex-col gap-4 p-4 sm:p-6">
+          <h2 className="text-base font-semibold">Thu thập hình ảnh</h2>
+          <PhotoUploadField
+            label="Ảnh tổng thể thiết bị (có mặt kiểm định viên)"
+            files={overallPhotos}
+            onChange={setOverallPhotos}
+            required
+          />
+          {overallResult === "khong_dat" && (
+            <PhotoUploadField
+              label="Ảnh chi tiết hạng mục không đạt"
+              files={defectPhotos}
+              onChange={setDefectPhotos}
+              required
+            />
+          )}
+        </CardContent>
+      </Card>
 
       {/* Kết luận */}
       <Card>
