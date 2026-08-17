@@ -15,7 +15,13 @@ import { INSPECTION_RESULT_CONFIG } from "@/lib/inspection/result";
 import { AttachmentLink } from "./attachment-link";
 import { AddInspectionDialog } from "./add-inspection-dialog";
 import { InspectionPhotoThumbnails } from "./inspection-photo-thumbnails";
+import { ExportReportDialog } from "./export-report-dialog";
 import type { InspectionHistoryDetailRow } from "./types";
+
+// PROMPT-21: mẫu Word xuất biên bản hiện chỉ có cho pilot này -- các loại
+// thiết bị khác chưa có mẫu nên ẩn hẳn nút xuất (không disable+tooltip, đỡ
+// phải thêm component Tooltip mới cho 1 trường hợp).
+const WORD_EXPORT_SUPPORTED_TYPE = "Thiết bị nâng - Cầu trục";
 
 function formatDate(value: string | null): string {
   if (!value) return "—";
@@ -24,15 +30,20 @@ function formatDate(value: string | null): string {
 
 export function InspectionHistorySection({
   equipmentId,
+  equipmentType,
+  equipmentInspectionCycle,
   history,
   canEdit,
   hasChecklistTemplate,
 }: {
   equipmentId: string;
+  equipmentType: string | null;
+  equipmentInspectionCycle: number | null;
   history: InspectionHistoryDetailRow[];
   canEdit: boolean;
   hasChecklistTemplate: boolean;
 }) {
+  const canExportWord = equipmentType === WORD_EXPORT_SUPPORTED_TYPE;
   return (
     <section className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -66,6 +77,7 @@ export function InspectionHistorySection({
                   <TableHead>Ghi chú</TableHead>
                   <TableHead>File</TableHead>
                   <TableHead>Ảnh</TableHead>
+                  {canExportWord && <TableHead>Biên bản</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -103,6 +115,15 @@ export function InspectionHistorySection({
                           "—"
                         )}
                       </TableCell>
+                      {canExportWord && (
+                        <TableCell>
+                          <ExportReportDialog
+                            equipmentId={equipmentId}
+                            inspectionHistoryId={item.id}
+                            inspectionCycle={equipmentInspectionCycle}
+                          />
+                        </TableCell>
+                      )}
                     </TableRow>
                   );
                 })}
@@ -132,6 +153,13 @@ export function InspectionHistorySection({
                     </div>
                     {item.attachment_url && <AttachmentLink path={item.attachment_url} />}
                     {item.photos.length > 0 && <InspectionPhotoThumbnails photos={item.photos} />}
+                    {canExportWord && (
+                      <ExportReportDialog
+                        equipmentId={equipmentId}
+                        inspectionHistoryId={item.id}
+                        inspectionCycle={equipmentInspectionCycle}
+                      />
+                    )}
                   </CardContent>
                 </Card>
               );
