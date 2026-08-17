@@ -186,8 +186,10 @@ export function InspectChecklistForm({
 
   // ----- Kết luận -----
   const [kienNghi, setKienNghi] = useState("");
+  const [thoiHanKienNghi, setThoiHanKienNghi] = useState("");
   const [newExpiryDate, setNewExpiryDate] = useState("");
   const [soTem, setSoTem] = useState("");
+  const [viTriTem, setViTriTem] = useState("");
   const [inspectionDate, setInspectionDate] = useState(todayIso());
   const [reportNumber, setReportNumber] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -363,7 +365,9 @@ export function InspectChecklistForm({
         .map((r) => ({ ten: r.ten.trim(), chuc_vu: r.chuc_vu.trim() || null })),
       dia_diem_lap_bien_ban: diaDiem.trim() || null,
       kien_nghi: kienNghi.trim() || null,
+      thoi_han_kien_nghi: thoiHanKienNghi.trim() || null,
       so_tem: soTem.trim() || null,
+      vi_tri_tem: viTriTem.trim() || null,
       kiem_tra_ho_so:
         hoSoDayDu === null
           ? null
@@ -743,6 +747,13 @@ export function InspectChecklistForm({
             </div>
           )}
 
+          {overallResult === "khong_dat" && (
+            <div className="flex flex-col gap-1">
+              <label className="text-sm font-medium">Thời hạn thực hiện kiến nghị</label>
+              <Input value={thoiHanKienNghi} onChange={(e) => setThoiHanKienNghi(e.target.value)} />
+            </div>
+          )}
+
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1">
               <label className="text-sm font-medium">Ngày kiểm định *</label>
@@ -763,6 +774,10 @@ export function InspectChecklistForm({
             <div className="flex flex-col gap-1">
               <label className="text-sm font-medium">Đã dán tem kiểm định số</label>
               <Input value={soTem} onChange={(e) => setSoTem(e.target.value)} />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-sm font-medium">Vị trí dán tem</label>
+              <Input value={viTriTem} onChange={(e) => setViTriTem(e.target.value)} />
             </div>
           </div>
 

@@ -155,6 +155,8 @@ export default async function EquipmentDetailPage(
 
       <InspectionHistorySection
         equipmentId={equipment.id}
+        equipmentType={equipment.type}
+        equipmentInspectionCycle={equipment.inspection_cycle}
         history={history}
         canEdit={canEdit}
         hasChecklistTemplate={hasChecklistTemplate}
