@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { INSPECTION_RESULT_CONFIG } from "@/lib/inspection/result";
 import { AttachmentLink } from "./attachment-link";
 import { AddInspectionDialog } from "./add-inspection-dialog";
+import { InspectionPhotoThumbnails } from "./inspection-photo-thumbnails";
 import type { InspectionHistoryDetailRow } from "./types";
 
 function formatDate(value: string | null): string {
@@ -64,6 +65,7 @@ export function InspectionHistorySection({
                   <TableHead>Hạn mới</TableHead>
                   <TableHead>Ghi chú</TableHead>
                   <TableHead>File</TableHead>
+                  <TableHead>Ảnh</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -90,6 +92,13 @@ export function InspectionHistorySection({
                       <TableCell>
                         {item.attachment_url ? (
                           <AttachmentLink path={item.attachment_url} />
+                        ) : (
+                          "—"
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {item.photos.length > 0 ? (
+                          <InspectionPhotoThumbnails photos={item.photos} />
                         ) : (
                           "—"
                         )}
@@ -122,6 +131,7 @@ export function InspectionHistorySection({
                       {item.notes && <span>Ghi chú: {item.notes}</span>}
                     </div>
                     {item.attachment_url && <AttachmentLink path={item.attachment_url} />}
+                    {item.photos.length > 0 && <InspectionPhotoThumbnails photos={item.photos} />}
                   </CardContent>
                 </Card>
               );

@@ -44,7 +44,7 @@ export default async function EquipmentDetailPage(
     supabase
       .from("inspection_history")
       .select(
-        "id, inspection_date, result, report_number, new_expiry_date, notes, attachment_url, inspector:profiles(full_name)"
+        "id, inspection_date, result, report_number, new_expiry_date, notes, attachment_url, inspector:profiles(full_name), photos:inspection_photos(id, category, storage_path)"
       )
       .eq("equipment_id", params.id)
       .order("inspection_date", { ascending: false }),
