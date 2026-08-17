@@ -16,7 +16,7 @@ export default async function EditEquipmentPage(
   const { data: equipment, error } = await supabase
     .from("equipment")
     .select(
-      "id, code, customer_id, name, type, manufacturer, manufacture_year, serial_number, specifications, location, last_inspection_date, expiry_date, inspection_cycle, status, notes, customer:customers(code, company_name)"
+      "id, code, customer_id, name, type, manufacturer, manufacture_year, serial_number, specifications, location, last_inspection_date, expiry_date, inspection_cycle, status, notes, spec_values, customer:customers(code, company_name)"
     )
     .eq("id", params.id)
     .maybeSingle();

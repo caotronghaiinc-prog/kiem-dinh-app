@@ -82,6 +82,14 @@ export const equipmentFormSchema = z
       ),
     is_inactive: z.boolean(),
     notes: z.string().trim().optional(),
+    // PROMPT-20: thông số kỹ thuật có cấu trúc, khác nhau theo loại thiết bị
+    // (xem src/lib/equipment/spec-fields.ts) -- key/value đều là text tự do,
+    // form chỉ render đúng field của loại đang chọn nên không cần validate
+    // chặt hơn ở đây. Dùng .optional() (không phải .default({})) -- form
+    // đã tự set defaultValues.spec_values = {}, còn ZodDefault làm input/
+    // output type của schema lệch nhau khiến zodResolver không suy luận
+    // được generic, gây lỗi type ở MỌI FormField khác trong cùng form.
+    spec_values: z.record(z.string()).optional(),
   })
   .refine(
     (data) => {
