@@ -17,11 +17,7 @@ import { AddInspectionDialog } from "./add-inspection-dialog";
 import { InspectionPhotoThumbnails } from "./inspection-photo-thumbnails";
 import { ExportReportDialog } from "./export-report-dialog";
 import type { InspectionHistoryDetailRow } from "./types";
-
-// PROMPT-21: mẫu Word xuất biên bản hiện chỉ có cho pilot này -- các loại
-// thiết bị khác chưa có mẫu nên ẩn hẳn nút xuất (không disable+tooltip, đỡ
-// phải thêm component Tooltip mới cho 1 trường hợp).
-const WORD_EXPORT_SUPPORTED_TYPE = "Thiết bị nâng - Cầu trục";
+import { REPORT_REGISTRY } from "@/lib/reports/registry";
 
 function formatDate(value: string | null): string {
   if (!value) return "—";
@@ -43,7 +39,10 @@ export function InspectionHistorySection({
   canEdit: boolean;
   hasChecklistTemplate: boolean;
 }) {
-  const canExportWord = equipmentType === WORD_EXPORT_SUPPORTED_TYPE;
+  // PROMPT-21/23: mẫu Word xuất biên bản chưa có cho mọi loại thiết bị --
+  // ẩn hẳn nút xuất (không disable+tooltip, đỡ phải thêm component Tooltip
+  // mới cho vài trường hợp) khi loại thiết bị chưa có entry trong registry.
+  const canExportWord = equipmentType != null && equipmentType in REPORT_REGISTRY;
   return (
     <section className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">

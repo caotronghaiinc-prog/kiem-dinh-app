@@ -6,7 +6,6 @@ import ImageModule from "docxtemplater-image-module-free";
 import { createClient } from "@/lib/supabase/client";
 import { ATTACHMENT_BUCKET } from "@/lib/inspection/form-schema";
 
-const TEMPLATE_URL = "/report-templates/thiet-bi-nang-cau-truc.docx";
 // Ảnh chụp hiện trường tỷ lệ khác nhau -- scale-down giữ đúng tỷ lệ trong
 // khung tối đa này (px), không hardcode 1 kích thước cố định.
 const IMAGE_MAX_WIDTH_PX = 420;
@@ -85,16 +84,19 @@ export interface GenerateReportResult {
 }
 
 /**
- * Merge data vào mẫu Word + tải file .docx về máy. Tải template + ảnh song
- * song, build map ảnh trước khi khởi tạo Docxtemplater (xem loadPhotoBuffers).
+ * Merge data vào mẫu Word (bất kỳ loại thiết bị nào, templateUrl truyền
+ * vào từ registry.ts theo equipment.type) + tải file .docx về máy. Tải
+ * template + ảnh song song, build map ảnh trước khi khởi tạo Docxtemplater
+ * (xem loadPhotoBuffers).
  */
-export async function generateThietBiNangCauTrucReport(
+export async function generateReport(
+  templateUrl: string,
   data: Record<string, unknown>,
   photoStoragePaths: string[],
   fileName: string
 ): Promise<GenerateReportResult> {
   const [templateResponse, { buffers, sizes }] = await Promise.all([
-    fetch(TEMPLATE_URL),
+    fetch(templateUrl),
     loadPhotoBuffers(photoStoragePaths),
   ]);
 
