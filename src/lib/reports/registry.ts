@@ -9,6 +9,7 @@
 // giải theo key bên trong từng module) nên không cần union type/any ở đây.
 import { buildThietBiNangCauTrucReportData } from "@/lib/reports/thiet-bi-nang-cau-truc";
 import { buildThietBiNangCanTrucReportData } from "@/lib/reports/thiet-bi-nang-can-truc";
+import { buildThietBiNangPaLangReportData } from "@/lib/reports/thiet-bi-nang-pa-lang";
 import type { BuildReportDataInput } from "@/lib/reports/shared";
 
 export interface ReportRegistryEntry {
@@ -24,6 +25,10 @@ export const REPORT_REGISTRY: Record<string, ReportRegistryEntry> = {
   "Thiết bị nâng - Cần trục": {
     templateUrl: "/report-templates/thiet-bi-nang-can-truc.docx",
     buildData: buildThietBiNangCanTrucReportData,
+  },
+  "Thiết bị nâng - Palăng": {
+    templateUrl: "/report-templates/thiet-bi-nang-pa-lang.docx",
+    buildData: buildThietBiNangPaLangReportData,
   },
 };
 

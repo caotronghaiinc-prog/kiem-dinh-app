@@ -39,6 +39,15 @@ export const EQUIPMENT_SPEC_FIELDS: Record<string, EquipmentSpecField[]> = {
     },
     { key: "cong_dung", label: "Công dụng", unit: null },
   ],
+  "Thiết bị nâng - Palăng": [
+    { key: "ma_hieu", label: "Mã hiệu", unit: null },
+    { key: "trong_tai", label: "Trọng tải thiết kế/thực tế", unit: "tấn" },
+    { key: "van_toc_nang_ha", label: "Vận tốc nâng/hạ", unit: "m/ph" },
+    { key: "van_toc_di_chuyen", label: "Vận tốc di chuyển thiết bị", unit: "m/ph" },
+    { key: "chieu_dai_duong_chay", label: "Chiều dài đường chạy", unit: "m" },
+    { key: "do_cao_nang_moc", label: "Độ cao nâng móc", unit: "m" },
+    { key: "cong_dung", label: "Công dụng", unit: null },
+  ],
 };
 
 export function getEquipmentSpecFields(type: string | null | undefined): EquipmentSpecField[] {
