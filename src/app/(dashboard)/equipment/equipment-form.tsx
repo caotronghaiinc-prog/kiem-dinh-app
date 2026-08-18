@@ -34,7 +34,7 @@ import {
   EQUIPMENT_TYPE_OTHER,
   type EquipmentFormValues,
 } from "@/lib/equipment/form-schema";
-import { getEquipmentSpecFields } from "@/lib/equipment/spec-fields";
+import { getEquipmentSpecFields, getSpecSectionLabel } from "@/lib/equipment/spec-fields";
 import type { CustomerOption, EquipmentRecord } from "./types";
 
 interface EquipmentFormProps {
@@ -82,6 +82,7 @@ export function EquipmentForm({ mode, equipment, customerOptions = [] }: Equipme
 
   const selectedType = form.watch("type");
   const specFields = getEquipmentSpecFields(selectedType);
+  const specSectionLabel = getSpecSectionLabel(selectedType);
 
   // Đổi Loại thiết bị sang loại KHÔNG có field thông số có cấu trúc riêng
   // (hoặc bỏ chọn) -- xóa spec_values cũ để tránh lưu nhầm dữ liệu của loại
@@ -342,7 +343,7 @@ export function EquipmentForm({ mode, equipment, customerOptions = [] }: Equipme
 
         {specFields.length > 0 && (
           <div className="flex flex-col gap-4">
-            <h3 className="text-sm font-semibold">Thông số kỹ thuật cầu trục</h3>
+            <h3 className="text-sm font-semibold">Thông số kỹ thuật {specSectionLabel}</h3>
             <div className="grid gap-4 sm:grid-cols-2">
               {specFields.map((f) => (
                 <FormField
