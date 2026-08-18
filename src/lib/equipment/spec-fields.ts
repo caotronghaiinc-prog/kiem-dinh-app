@@ -48,6 +48,14 @@ export const EQUIPMENT_SPEC_FIELDS: Record<string, EquipmentSpecField[]> = {
     { key: "do_cao_nang_moc", label: "Độ cao nâng móc", unit: "m" },
     { key: "cong_dung", label: "Công dụng", unit: null },
   ],
+  "Thiết bị nâng - Tời": [
+    { key: "ma_hieu", label: "Mã hiệu", unit: null },
+    { key: "trong_tai", label: "Trọng tải thiết kế/thực tế", unit: "tấn" },
+    { key: "van_toc_toi", label: "Vận tốc tời", unit: "m/ph" },
+    { key: "chieu_cao_nang_chieu_dai_keo", label: "Chiều cao nâng/Chiều dài kéo", unit: "m" },
+    { key: "goc_nghieng_lon_nhat", label: "Góc nghiêng lớn nhất", unit: "độ" },
+    { key: "cong_dung", label: "Công dụng", unit: null },
+  ],
 };
 
 export function getEquipmentSpecFields(type: string | null | undefined): EquipmentSpecField[] {
