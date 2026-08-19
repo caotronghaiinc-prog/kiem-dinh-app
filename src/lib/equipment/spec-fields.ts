@@ -64,6 +64,14 @@ export const EQUIPMENT_SPEC_FIELDS: Record<string, EquipmentSpecField[]> = {
     { key: "chieu_cao_nang", label: "Chiều cao nâng thiết kế/thực tế", unit: "m" },
     { key: "cong_dung", label: "Công dụng", unit: null },
   ],
+  "Thiết bị nâng - Bàn nâng hàng": [
+    { key: "ma_hieu", label: "Mã hiệu", unit: null },
+    { key: "trong_tai", label: "Trọng tải thiết kế/thực tế", unit: "tấn" },
+    { key: "chieu_cao_nang", label: "Chiều cao nâng thiết kế/thực tế", unit: "m" },
+    { key: "van_toc_nang", label: "Vận tốc nâng", unit: "m/ph" },
+    { key: "kich_thuoc_ban_nang", label: "Kích thước bàn nâng", unit: "m" },
+    { key: "cong_dung", label: "Công dụng", unit: null },
+  ],
 };
 
 export function getEquipmentSpecFields(type: string | null | undefined): EquipmentSpecField[] {
