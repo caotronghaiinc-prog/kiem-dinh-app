@@ -239,6 +239,11 @@ export function buildCommonReportData(
     const n = item.item_order;
     data[`cb_${n}_dat`] = result?.result === "dat" ? CHECKED : UNCHECKED;
     data[`cb_${n}_kdat`] = result?.result === "khong_dat" ? CHECKED : UNCHECKED;
+    // PROMPT-35: cột "Không đánh giá" -- field CHUNG cho mọi loại thiết bị,
+    // nhưng 6 loại Thiết bị nâng hiện có chưa dùng tag này trong mẫu Word
+    // (chỉ thêm 1 key thừa vô hại). Bình áp lực (mục III.3) là loại đầu
+    // tiên có cột này trên giấy.
+    data[`cb_${n}_kdanhgia`] = result?.result === "khong_danh_gia" ? CHECKED : UNCHECKED;
     if (item.has_presence_flag) {
       data[`pf_${n}`] = result?.presence_value === "co" ? CHECKED : UNCHECKED;
     }
