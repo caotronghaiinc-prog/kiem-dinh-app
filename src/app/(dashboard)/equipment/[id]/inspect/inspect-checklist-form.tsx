@@ -21,6 +21,7 @@ import { RadioPillGroup, type RadioPillOption } from "./radio-pill-group";
 import { ChecklistItemCard, type ChecklistItemState } from "./checklist-item-card";
 import { PhotoUploadField } from "./photo-upload-field";
 import { BinhApLucExtraForm, type BinhApLucExtraFormHandle } from "./binh-ap-luc-extra-form";
+import { NoiHoiExtraForm, type NoiHoiExtraFormHandle } from "./noi-hoi-extra-form";
 import type { ChecklistItem, ChecklistResult, ChecklistTemplate, InspectEquipment } from "./types";
 
 type HinhThuc = "lan_dau" | "dinh_ky_hang_nam" | "dinh_ky" | "bat_thuong";
@@ -134,6 +135,10 @@ export function InspectChecklistForm({
   // BinhApLucExtraForm, không đổi gì luồng Thiết bị nâng hiện có.
   const isBinhApLuc = equipment.type === "Bình áp lực";
   const binhApLucRef = useRef<BinhApLucExtraFormHandle>(null);
+  // PROMPT-39: "Nồi hơi" cùng họ mẫu I-V với Bình áp lực -- áp dụng y hệt
+  // cách ẩn/thay khối dùng chung.
+  const isNoiHoi = equipment.type === "Nồi hơi";
+  const noiHoiRef = useRef<NoiHoiExtraFormHandle>(null);
 
   // ----- Phần đầu -----
   const [hinhThuc, setHinhThuc] = useState<HinhThuc | null>(null);
@@ -281,7 +286,7 @@ export function InspectChecklistForm({
       );
     }
 
-    if (hinhThuc && !isBinhApLuc) {
+    if (hinhThuc && !isBinhApLuc && !isNoiHoi) {
       if (hoSoDayDu === null) {
         errors.push("Vui lòng chọn Đầy đủ/Không đầy đủ cho phần kiểm tra hồ sơ kỹ thuật.");
       } else if (hoSoDayDu === false && !hoSoLyDo.trim()) {
@@ -376,17 +381,19 @@ export function InspectChecklistForm({
       thoi_han_kien_nghi: thoiHanKienNghi.trim() || null,
       so_tem: soTem.trim() || null,
       vi_tri_tem: viTriTem.trim() || null,
-      // Bình áp lực không dùng khối "Kiểm tra hồ sơ kỹ thuật"/"Ghi nhận
-      // khác" chung (thay bằng report_metadata.binh_ap_luc riêng) -- để
-      // null thay vì đọc state hoSoDayDu/hoSoLyDo/ghiNhanKhac (form ẩn nên
-      // các state này không được người dùng điền).
-      kiem_tra_ho_so: isBinhApLuc
-        ? null
-        : hoSoDayDu === null
+      // Bình áp lực/Nồi hơi không dùng khối "Kiểm tra hồ sơ kỹ thuật"/"Ghi
+      // nhận khác" chung (thay bằng report_metadata.binh_ap_luc/noi_hoi
+      // riêng) -- để null thay vì đọc state hoSoDayDu/hoSoLyDo/ghiNhanKhac
+      // (form ẩn nên các state này không được người dùng điền).
+      kiem_tra_ho_so:
+        isBinhApLuc || isNoiHoi
           ? null
-          : { day_du: hoSoDayDu, ly_do: hoSoDayDu ? null : hoSoLyDo.trim() || null },
-      ghi_nhan_khac: isBinhApLuc ? null : ghiNhanKhac.trim() || null,
+          : hoSoDayDu === null
+            ? null
+            : { day_du: hoSoDayDu, ly_do: hoSoDayDu ? null : hoSoLyDo.trim() || null },
+      ghi_nhan_khac: isBinhApLuc || isNoiHoi ? null : ghiNhanKhac.trim() || null,
       binh_ap_luc: isBinhApLuc ? (binhApLucRef.current?.buildMetadata() ?? null) : null,
+      noi_hoi: isNoiHoi ? (noiHoiRef.current?.buildMetadata() ?? null) : null,
     };
 
     const { data: inserted, error: insertError } = await supabase
@@ -616,8 +623,9 @@ export function InspectChecklistForm({
       </Card>
 
       {/* Kiểm tra hồ sơ kỹ thuật -- chỉ hiện đúng 1 dòng theo hình thức KĐ đã chọn ở trên.
-          Không áp dụng cho Bình áp lực (thay bằng BinhApLucExtraForm bên dưới). */}
-      {hinhThuc && !isBinhApLuc && (
+          Không áp dụng cho Bình áp lực/Nồi hơi (thay bằng BinhApLucExtraForm/
+          NoiHoiExtraForm bên dưới). */}
+      {hinhThuc && !isBinhApLuc && !isNoiHoi && (
         <Card>
           <CardContent className="flex flex-col gap-4 p-4 sm:p-6">
             <h2 className="text-base font-semibold">Kiểm tra hồ sơ kỹ thuật</h2>
@@ -708,8 +716,12 @@ export function InspectChecklistForm({
           chung với Thiết bị nâng. */}
       {isBinhApLuc && <BinhApLucExtraForm ref={binhApLucRef} hinhThuc={hinhThuc} />}
 
-      {/* Các ghi nhận khác -- tự do, không bắt buộc. Không áp dụng cho Bình áp lực. */}
-      {!isBinhApLuc && (
+      {/* Nồi hơi: phần "còn lại" của mẫu (mục 1/2/3.1 phụ/3.2/4/5/IV) --
+          xem noi-hoi-extra-form.tsx, cùng lý do gộp 1 khối như Bình áp lực. */}
+      {isNoiHoi && <NoiHoiExtraForm ref={noiHoiRef} hinhThuc={hinhThuc} />}
+
+      {/* Các ghi nhận khác -- tự do, không bắt buộc. Không áp dụng cho Bình áp lực/Nồi hơi. */}
+      {!isBinhApLuc && !isNoiHoi && (
         <Card>
           <CardContent className="flex flex-col gap-1 p-4 sm:p-6">
             <label className="text-sm font-medium">Ghi nhận khác (nếu có)</label>
