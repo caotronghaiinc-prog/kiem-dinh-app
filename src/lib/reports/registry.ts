@@ -13,6 +13,7 @@ import { buildThietBiNangPaLangReportData } from "@/lib/reports/thiet-bi-nang-pa
 import { buildThietBiNangToiReportData } from "@/lib/reports/thiet-bi-nang-toi";
 import { buildThietBiNangVanThangReportData } from "@/lib/reports/thiet-bi-nang-van-thang";
 import { buildThietBiNangBanNangReportData } from "@/lib/reports/thiet-bi-nang-ban-nang";
+import { buildBinhApLucReportData } from "@/lib/reports/binh-ap-luc";
 import type { BuildReportDataInput } from "@/lib/reports/shared";
 
 export interface ReportRegistryEntry {
@@ -44,6 +45,10 @@ export const REPORT_REGISTRY: Record<string, ReportRegistryEntry> = {
   "Thiết bị nâng - Bàn nâng hàng": {
     templateUrl: "/report-templates/thiet-bi-nang-ban-nang.docx",
     buildData: buildThietBiNangBanNangReportData,
+  },
+  "Bình áp lực": {
+    templateUrl: "/report-templates/binh-ap-luc.docx",
+    buildData: buildBinhApLucReportData,
   },
 };
 
