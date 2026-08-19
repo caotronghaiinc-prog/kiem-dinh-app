@@ -104,6 +104,20 @@ export const EQUIPMENT_SPEC_FIELDS: Record<string, EquipmentSpecField[]> = {
     },
     { key: "cong_dung", label: "Công dụng", unit: null },
   ],
+  // PROMPT-41: mẫu "Nồi gia nhiệt dầu" (mục I) -- gần như song sinh với Bình
+  // áp lực, thêm nhien_lieu_su_dung (giống Nồi hơi) vì có đốt nhiên liệu gia
+  // nhiệt dầu tải nhiệt.
+  "Nồi gia nhiệt dầu": [
+    { key: "loai_ma_hieu", label: "Loại, mã hiệu", unit: null },
+    { key: "nuoc_che_tao", label: "Nước chế tạo", unit: null },
+    { key: "cong_suat", label: "Công suất", unit: "kcal/h" },
+    { key: "ap_suat_thiet_ke", label: "Áp suất thiết kế", unit: "bar" },
+    { key: "ap_suat_lam_viec_lon_nhat", label: "Áp suất làm việc lớn nhất", unit: "bar" },
+    { key: "moi_chat_lam_viec", label: "Môi chất làm việc", unit: null },
+    { key: "nhiet_do_lam_viec_lon_nhat", label: "Nhiệt độ làm việc lớn nhất", unit: "°C" },
+    { key: "nhien_lieu_su_dung", label: "Nhiên liệu sử dụng", unit: null },
+    { key: "cong_dung", label: "Công dụng của nồi", unit: null },
+  ],
 };
 
 export function getEquipmentSpecFields(type: string | null | undefined): EquipmentSpecField[] {

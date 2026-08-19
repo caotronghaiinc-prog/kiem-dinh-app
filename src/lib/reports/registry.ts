@@ -15,6 +15,7 @@ import { buildThietBiNangVanThangReportData } from "@/lib/reports/thiet-bi-nang-
 import { buildThietBiNangBanNangReportData } from "@/lib/reports/thiet-bi-nang-ban-nang";
 import { buildBinhApLucReportData } from "@/lib/reports/binh-ap-luc";
 import { buildNoiHoiReportData } from "@/lib/reports/noi-hoi";
+import { buildNoiGiaNhietDauReportData } from "@/lib/reports/noi-gia-nhiet-dau";
 import type { BuildReportDataInput } from "@/lib/reports/shared";
 
 export interface ReportRegistryEntry {
@@ -58,6 +59,13 @@ export const REPORT_REGISTRY: Record<string, ReportRegistryEntry> = {
   "Nồi hơi": {
     templateUrl: "/report-templates/noi-hoi.docx",
     buildData: buildNoiHoiReportData,
+  },
+  // PROMPT-41: mẫu Word public/report-templates/noi-gia-nhiet-dau.docx CHƯA
+  // đăng ký chính thức trong PROMPT này -- chỉ đăng ký đường dẫn, đúng quy
+  // ước đã dùng cho Nồi hơi (PROMPT-39/40).
+  "Nồi gia nhiệt dầu": {
+    templateUrl: "/report-templates/noi-gia-nhiet-dau.docx",
+    buildData: buildNoiGiaNhietDauReportData,
   },
 };
 
