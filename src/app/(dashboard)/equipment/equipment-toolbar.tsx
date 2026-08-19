@@ -118,9 +118,14 @@ export function EquipmentToolbar({
         </Select>
       </div>
       <RoleGate allowedRoles={["admin", "inspector"]}>
-        <Button asChild>
-          <Link href="/equipment/new">+ Thêm thiết bị</Link>
-        </Button>
+        <div className="flex gap-2">
+          <Button asChild variant="outline">
+            <Link href="/equipment/import">Import Excel</Link>
+          </Button>
+          <Button asChild>
+            <Link href="/equipment/new">+ Thêm thiết bị</Link>
+          </Button>
+        </div>
       </RoleGate>
     </div>
   );
