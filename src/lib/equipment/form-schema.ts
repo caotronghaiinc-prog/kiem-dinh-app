@@ -17,6 +17,7 @@ export const EQUIPMENT_TYPE_GROUPS = [
     options: [
       "Nồi hơi",
       "Bình áp lực",
+      "Nồi gia nhiệt dầu",
       "Hệ thống ống áp lực",
       "Thiết bị nâng - Cầu trục",
       "Thiết bị nâng - Cần trục",

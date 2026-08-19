@@ -201,6 +201,95 @@ export interface ReportMetadataNoiHoi {
   };
 }
 
+// PROMPT-41: mẫu "Nồi gia nhiệt dầu" -- gần như song sinh với
+// ReportMetadataBinhApLuc (cùng họ mẫu I-V, không có hạng mục checklist cần
+// ô giá trị, mục IV là 2 dòng text tự do chứ không phải bảng 2x3 như Nồi
+// hơi), nhưng khác Bình áp lực ở 2 điểm: nhóm hồ sơ "lần đầu" chỉ 4 dòng
+// (không phải 5), và có thêm mục 3.2 "Kiểm tra thay thế" (y hệt cấu trúc đã
+// làm ở Nồi hơi, Bình áp lực không có).
+export interface ReportMetadataNoiGiaNhietDau {
+  // ----- 1. Kiểm tra hồ sơ (3 mảng ĐỘ DÀI CỐ ĐỊNH) -----
+  // LƯU Ý: nhóm "lần đầu" chỉ có 4 phần tử (khác Bình áp lực/Nồi hơi đều là 5).
+  ho_so_lan_dau: { co: boolean | null }[]; // 4 phần tử
+  ho_so_dinh_ky: { co: boolean | null }[]; // 6 phần tử
+  ho_so_bat_thuong: { co: boolean | null }[]; // 8 phần tử
+  ho_so_nhan_xet: string | null;
+  ho_so_ket_qua: "dat" | "khong_dat" | null;
+
+  // ----- 2. Thiết bị, dụng cụ phục vụ kiểm định (bảng động) -----
+  thiet_bi_dung_cu: {
+    ten_goi_ma_hieu: string;
+    thang_do: string;
+    so_nhan_dang: string;
+    so_gcn_kdhc: string;
+    han_kdhc: string;
+  }[];
+
+  // ----- 3.1 (phụ) Tình trạng của các thiết bị kiểm tra an toàn, dụng cụ đo kiểm -----
+  // LƯU Ý: dòng thứ 3 là "Nhiệt kế" (không phải "Đo mức" như Bình áp lực/Nồi hơi) --
+  // nồi gia nhiệt dầu dùng dầu tải nhiệt tuần hoàn kín, không có mức nước để đo.
+  van_an_toan_kieu_loai: string | null;
+  van_an_toan_kich_co: string | null;
+  van_an_toan_so_luong: string | null;
+  ap_ke_thang_do: string | null;
+  ap_ke_cap_cx: string | null;
+  ap_ke_so_tem_kd: string | null;
+  ap_ke_han_kd: string | null;
+  nhiet_ke_kieu_loai: string | null;
+  nhiet_ke_so_tem_kdhc: string | null;
+  nhiet_ke_so_luong: string | null;
+  kiem_tra_ngoai_trong_nhan_xet: string | null;
+  kiem_tra_ngoai_trong_ket_qua: "dat" | "khong_dat" | null;
+
+  // ----- 3.2 Kết quả áp dụng biện pháp kiểm tra thay thế (nếu có) -----
+  // Giống hệt cấu trúc mục 3.2 của Nồi hơi (ReportMetadataNoiHoi.kiem_tra_thay_the).
+  kiem_tra_thay_the: {
+    ly_do_khong_kiem_tra_trong: string | null;
+    bien_phap_da_ap_dung: string | null;
+    pham_vi_kiem_tra: string | null;
+    ket_qua_kiem_tra: string | null;
+    can_cu_ket_luan: string | null;
+    ket_luan_danh_gia: string | null;
+  };
+
+  // ----- 4. Thử nghiệm (CẢ Thử bền VÀ Thử kín -- giống Bình áp lực) -----
+  thu_ben: {
+    moi_chat: string | null;
+    ap_suat_bar: string | null;
+    thoi_gian_phut: string | null;
+    ro_ri: "khong" | "co" | null;
+    bien_dang_nut: "khong" | "co" | null;
+    tut_ap: "khong" | "co" | null;
+    khong_thu: boolean;
+  };
+  thu_kin: {
+    moi_chat: string | null;
+    ap_suat_bar: string | null;
+    thoi_gian_phut: string | null;
+    ro_ri: "khong" | "co" | null;
+    tut_ap: "khong" | "co" | null;
+    khong_thu: boolean;
+  };
+  ly_do_khong_thu: string | null;
+  thu_nghiem_nhan_xet: string | null;
+  thu_nghiem_ket_qua: "dat" | "khong_dat" | null;
+
+  // ----- 5. Thử vận hành -- 4 hạng mục ĐÃ nằm trong checklist generic
+  // (migration 0023, item_order 15-18). Mẫu giấy KHÔNG có dòng "Nhận xét/
+  // Đánh giá kết quả" riêng cho mục này (giống Bình áp lực, khác Nồi hơi) --
+  // KHÔNG thêm field ở đây, không có gì để lưu thêm.
+
+  // ----- IV Kết luận (riêng) -----
+  // Mục IV.3 "Áp suất làm việc lớn nhất" và IV.4 "Nhiệt độ làm việc lớn nhất"
+  // tái dùng THẲNG spec_values.ap_suat_lam_viec_lon_nhat/nhiet_do_lam_viec_lon_nhat,
+  // KHÔNG lặp lại ở đây (giống hệt Bình áp lực).
+  ap_suat_cai_dat_cung_kiem_dinh: string | null; // "Hiệu chỉnh cùng quá trình kiểm định"
+  ap_suat_cai_dat_khong_cung_kiem_dinh: string | null; // "Hiệu chỉnh không cùng quá trình kiểm định"
+  so_gcn_ket_qua: string | null;
+  ngay_cap_gcn: string | null;
+  don_vi_cap_gcn: string | null;
+}
+
 export interface ReportMetadata {
   hinh_thuc_kiem_dinh?: "lan_dau" | "dinh_ky_hang_nam" | "dinh_ky" | "bat_thuong" | null;
   ly_do_bat_thuong?: string | null;
@@ -215,6 +304,7 @@ export interface ReportMetadata {
   ghi_nhan_khac?: string | null;
   binh_ap_luc?: ReportMetadataBinhApLuc | null;
   noi_hoi?: ReportMetadataNoiHoi | null;
+  noi_gia_nhiet_dau?: ReportMetadataNoiGiaNhietDau | null;
 }
 
 export interface ReportInspectionHistory {
