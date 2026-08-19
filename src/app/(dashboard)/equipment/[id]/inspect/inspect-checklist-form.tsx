@@ -20,6 +20,7 @@ import {
 import { RadioPillGroup, type RadioPillOption } from "./radio-pill-group";
 import { ChecklistItemCard, type ChecklistItemState } from "./checklist-item-card";
 import { PhotoUploadField } from "./photo-upload-field";
+import { BinhApLucExtraForm, type BinhApLucExtraFormHandle } from "./binh-ap-luc-extra-form";
 import type { ChecklistItem, ChecklistResult, ChecklistTemplate, InspectEquipment } from "./types";
 
 type HinhThuc = "lan_dau" | "dinh_ky_hang_nam" | "dinh_ky" | "bat_thuong";
@@ -126,6 +127,13 @@ export function InspectChecklistForm({
   const router = useRouter();
   const { toast } = useToast();
   const { profile } = useCurrentUserProfile();
+
+  // PROMPT-33: mẫu "Bình áp lực" (mục I-V) khác hẳn cấu trúc A/B/C của
+  // Thiết bị nâng -- ẩn khối "Kiểm tra hồ sơ kỹ thuật"/"Ghi nhận khác"
+  // dùng chung (không áp dụng cho loại này) và render thêm
+  // BinhApLucExtraForm, không đổi gì luồng Thiết bị nâng hiện có.
+  const isBinhApLuc = equipment.type === "Bình áp lực";
+  const binhApLucRef = useRef<BinhApLucExtraFormHandle>(null);
 
   // ----- Phần đầu -----
   const [hinhThuc, setHinhThuc] = useState<HinhThuc | null>(null);
@@ -273,7 +281,7 @@ export function InspectChecklistForm({
       );
     }
 
-    if (hinhThuc) {
+    if (hinhThuc && !isBinhApLuc) {
       if (hoSoDayDu === null) {
         errors.push("Vui lòng chọn Đầy đủ/Không đầy đủ cho phần kiểm tra hồ sơ kỹ thuật.");
       } else if (hoSoDayDu === false && !hoSoLyDo.trim()) {
@@ -368,11 +376,17 @@ export function InspectChecklistForm({
       thoi_han_kien_nghi: thoiHanKienNghi.trim() || null,
       so_tem: soTem.trim() || null,
       vi_tri_tem: viTriTem.trim() || null,
-      kiem_tra_ho_so:
-        hoSoDayDu === null
+      // Bình áp lực không dùng khối "Kiểm tra hồ sơ kỹ thuật"/"Ghi nhận
+      // khác" chung (thay bằng report_metadata.binh_ap_luc riêng) -- để
+      // null thay vì đọc state hoSoDayDu/hoSoLyDo/ghiNhanKhac (form ẩn nên
+      // các state này không được người dùng điền).
+      kiem_tra_ho_so: isBinhApLuc
+        ? null
+        : hoSoDayDu === null
           ? null
           : { day_du: hoSoDayDu, ly_do: hoSoDayDu ? null : hoSoLyDo.trim() || null },
-      ghi_nhan_khac: ghiNhanKhac.trim() || null,
+      ghi_nhan_khac: isBinhApLuc ? null : ghiNhanKhac.trim() || null,
+      binh_ap_luc: isBinhApLuc ? (binhApLucRef.current?.buildMetadata() ?? null) : null,
     };
 
     const { data: inserted, error: insertError } = await supabase
@@ -601,8 +615,9 @@ export function InspectChecklistForm({
         </CardContent>
       </Card>
 
-      {/* Kiểm tra hồ sơ kỹ thuật -- chỉ hiện đúng 1 dòng theo hình thức KĐ đã chọn ở trên */}
-      {hinhThuc && (
+      {/* Kiểm tra hồ sơ kỹ thuật -- chỉ hiện đúng 1 dòng theo hình thức KĐ đã chọn ở trên.
+          Không áp dụng cho Bình áp lực (thay bằng BinhApLucExtraForm bên dưới). */}
+      {hinhThuc && !isBinhApLuc && (
         <Card>
           <CardContent className="flex flex-col gap-4 p-4 sm:p-6">
             <h2 className="text-base font-semibold">Kiểm tra hồ sơ kỹ thuật</h2>
@@ -686,13 +701,22 @@ export function InspectChecklistForm({
         );
       })}
 
-      {/* Các ghi nhận khác -- tự do, không bắt buộc */}
-      <Card>
-        <CardContent className="flex flex-col gap-1 p-4 sm:p-6">
-          <label className="text-sm font-medium">Ghi nhận khác (nếu có)</label>
-          <Textarea value={ghiNhanKhac} onChange={(e) => setGhiNhanKhac(e.target.value)} />
-        </CardContent>
-      </Card>
+      {/* Bình áp lực: phần "còn lại" của mẫu (III.1/III.2/III.3 phụ/III.4/
+          III.5.1/IV) -- xem binh-ap-luc-extra-form.tsx. Gộp thành 1 khối
+          sau checklist thay vì chen giữa từng section III.3/III.5 để không
+          phải đặc cách theo tên section trong vòng lặp checklist dùng
+          chung với Thiết bị nâng. */}
+      {isBinhApLuc && <BinhApLucExtraForm ref={binhApLucRef} hinhThuc={hinhThuc} />}
+
+      {/* Các ghi nhận khác -- tự do, không bắt buộc. Không áp dụng cho Bình áp lực. */}
+      {!isBinhApLuc && (
+        <Card>
+          <CardContent className="flex flex-col gap-1 p-4 sm:p-6">
+            <label className="text-sm font-medium">Ghi nhận khác (nếu có)</label>
+            <Textarea value={ghiNhanKhac} onChange={(e) => setGhiNhanKhac(e.target.value)} />
+          </CardContent>
+        </Card>
+      )}
 
       {/* 3- Thu thập hình ảnh (mục 8.5, bắt buộc) */}
       <Card>

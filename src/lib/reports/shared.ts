@@ -41,6 +41,87 @@ export interface ReportWitnessEntry {
   chuc_vu: string | null;
 }
 
+// PROMPT-33: mẫu "Bình áp lực" (mục I-V) khác hẳn cấu trúc A/B/C của
+// "Thiết bị nâng" -- 5 field dùng chung ở trên (hinh_thuc_kiem_dinh/
+// kiem_dinh_vien/nguoi_chung_kien/dia_diem_lap_bien_ban/kien_nghi/
+// thoi_han_kien_nghi/so_tem/vi_tri_tem) vẫn dùng y hệt, nhưng
+// kiem_tra_ho_so/ghi_nhan_khac KHÔNG áp dụng (để null/undefined khi lưu) --
+// mục III.1 "Kiểm tra hồ sơ" của Bình áp lực có 3 nhóm/19 dòng khác hẳn 1
+// dòng Đầy đủ/Không đầy đủ của Thiết bị nâng nên cần namespace riêng, tránh
+// đụng field dùng chung đang phục vụ Thiết bị nâng.
+export interface ReportMetadataBinhApLuc {
+  // ----- III.1 Kiểm tra hồ sơ (3 mảng ĐỘ DÀI CỐ ĐỊNH, giữ đúng thứ tự) -----
+  ho_so_lan_dau: { co: boolean | null }[]; // 5 phần tử
+  ho_so_dinh_ky: { co: boolean | null }[]; // 6 phần tử
+  ho_so_bat_thuong: { co: boolean | null }[]; // 8 phần tử
+  ho_so_nhan_xet: string | null;
+  ho_so_ket_qua: "dat" | "khong_dat" | null;
+
+  // ----- III.2 Thiết bị, dụng cụ phục vụ kiểm định (bảng động) -----
+  thiet_bi_dung_cu: {
+    ten_goi_ma_hieu: string;
+    thang_do: string;
+    so_nhan_dang: string;
+    so_gcn_kdhc: string;
+    han_kdhc: string;
+  }[];
+
+  // ----- III.3 (phụ) Tình trạng thiết bị kiểm tra an toàn -----
+  loai_kiem_tra: "ca_ngoai_trong" | "chi_ngoai" | null;
+  ly_do_khong_kiem_tra_trong: string | null;
+  van_an_toan_kieu_loai: string | null;
+  van_an_toan_kich_co: string | null;
+  van_an_toan_so_luong: string | null;
+  ap_ke_thang_do: string | null;
+  ap_ke_cap_cx: string | null;
+  ap_ke_so_tem_kd: string | null;
+  ap_ke_han_kd: string | null;
+  do_muc_kieu_loai: string | null;
+  do_muc_so_luong: string | null;
+  kiem_tra_ngoai_trong_nhan_xet: string | null;
+  kiem_tra_ngoai_trong_ket_qua: "dat" | "khong_dat" | null;
+
+  // ----- III.4 Thử nghiệm -----
+  thu_ben: {
+    moi_chat: string | null;
+    ap_suat_bar: string | null;
+    thoi_gian_phut: string | null;
+    ro_ri: "khong" | "co" | null;
+    bien_dang_nut: "khong" | "co" | null;
+    tut_ap: "khong" | "co" | null;
+    khong_thu: boolean;
+  };
+  thu_kin: {
+    moi_chat: string | null;
+    ap_suat_bar: string | null;
+    thoi_gian_phut: string | null;
+    ro_ri: "khong" | "co" | null;
+    tut_ap: "khong" | "co" | null;
+    khong_thu: boolean;
+  };
+  ly_do_khong_thu: string | null;
+  thu_nghiem_nhan_xet: string | null;
+
+  // ----- III.5.1 Thử van an toàn -----
+  van_thu_truc_tiep: "dat" | "khong_dat" | "khong_ap_dung" | null;
+  van_thu_chuyen_dung_ap_dung: boolean;
+  van_phe_duyet_ngay: string | null;
+  van_ap_suat_cai_dat: string | null;
+  van_tinh_trang_niem_chi: "dat" | "khong_dat" | null;
+  van_ho_so_day_du: "dat" | "khong_dat" | null;
+  van_ap_suat_phu_hop: "dat" | "khong_dat" | null;
+  van_chap_nhan_ket_qua: "chap_nhan" | "khong_chap_nhan" | null;
+
+  // ----- IV Kết luận (riêng, khác "tầm với/trọng tải" của Thiết bị nâng) -----
+  // ap_suat_lam_viec_lon_nhat/nhiet_do_lam_viec_lon_nhat của mục IV lấy
+  // THẲNG từ equipment.spec_values -- không lặp lại ở đây.
+  ap_suat_cai_dat_cung_van_hanh: string | null;
+  ap_suat_cai_dat_khong_cung_van_hanh: string | null;
+  so_gcn_ket_qua: string | null;
+  ngay_cap_gcn: string | null;
+  don_vi_cap_gcn: string | null;
+}
+
 export interface ReportMetadata {
   hinh_thuc_kiem_dinh?: "lan_dau" | "dinh_ky_hang_nam" | "dinh_ky" | "bat_thuong" | null;
   ly_do_bat_thuong?: string | null;
@@ -53,6 +134,7 @@ export interface ReportMetadata {
   vi_tri_tem?: string | null;
   kiem_tra_ho_so?: { day_du: boolean; ly_do: string | null } | null;
   ghi_nhan_khac?: string | null;
+  binh_ap_luc?: ReportMetadataBinhApLuc | null;
 }
 
 export interface ReportInspectionHistory {

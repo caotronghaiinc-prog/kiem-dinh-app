@@ -72,6 +72,21 @@ export const EQUIPMENT_SPEC_FIELDS: Record<string, EquipmentSpecField[]> = {
     { key: "kich_thuoc_ban_nang", label: "Kích thước bàn nâng", unit: "m" },
     { key: "cong_dung", label: "Công dụng", unit: null },
   ],
+  // PROMPT-33: mẫu "Bình áp lực" (mục I) khác hẳn cấu trúc "Thiết bị nâng"
+  // -- không có tầm với/trọng tải/vận tốc, thay bằng dung tích/áp suất/môi
+  // chất. "Nước chế tạo" không có cột equipment tương ứng (không giống số
+  // chế tạo/năm chế tạo/nhà chế tạo đã có serial_number/manufacture_year/
+  // manufacturer) nên vẫn cần thêm vào đây dù không phải field số liệu.
+  "Bình áp lực": [
+    { key: "loai_ma_hieu", label: "Loại, mã hiệu", unit: null },
+    { key: "nuoc_che_tao", label: "Nước chế tạo", unit: null },
+    { key: "dung_tich", label: "Dung tích", unit: "m³" },
+    { key: "ap_suat_thiet_ke", label: "Áp suất thiết kế", unit: "bar" },
+    { key: "ap_suat_lam_viec_lon_nhat", label: "Áp suất làm việc lớn nhất", unit: "bar" },
+    { key: "moi_chat_lam_viec", label: "Môi chất làm việc", unit: null },
+    { key: "nhiet_do_lam_viec_lon_nhat", label: "Nhiệt độ làm việc lớn nhất", unit: "°C" },
+    { key: "cong_dung", label: "Công dụng của bình", unit: null },
+  ],
 };
 
 export function getEquipmentSpecFields(type: string | null | undefined): EquipmentSpecField[] {
