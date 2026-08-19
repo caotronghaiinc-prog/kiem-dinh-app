@@ -87,6 +87,23 @@ export const EQUIPMENT_SPEC_FIELDS: Record<string, EquipmentSpecField[]> = {
     { key: "nhiet_do_lam_viec_lon_nhat", label: "Nhiệt độ làm việc lớn nhất", unit: "°C" },
     { key: "cong_dung", label: "Công dụng của bình", unit: null },
   ],
+  // PROMPT-39: mẫu "Nồi hơi" (mục I) -- Số chế tạo/Năm chế tạo/Nhà chế tạo
+  // dùng thẳng serial_number/manufacture_year/manufacturer có sẵn, không
+  // lặp lại, giống Bình áp lực.
+  "Nồi hơi": [
+    { key: "loai_ma_hieu", label: "Loại, mã hiệu", unit: null },
+    { key: "cong_suat", label: "Công suất", unit: "tấn/giờ" },
+    { key: "nhien_lieu_su_dung", label: "Nhiên liệu sử dụng", unit: null },
+    { key: "ap_suat_thiet_ke", label: "Áp suất thiết kế", unit: "bar" },
+    { key: "ap_suat_lam_viec_lon_nhat", label: "Áp suất làm việc", unit: "bar" },
+    { key: "nhiet_do_thiet_ke_hoi_bao_hoa", label: "Nhiệt độ thiết kế hơi bão hòa", unit: "°C" },
+    {
+      key: "nhiet_do_thiet_ke_hoi_qua_nhiet",
+      label: "Nhiệt độ thiết kế hơi quá nhiệt (nếu có)",
+      unit: "°C",
+    },
+    { key: "cong_dung", label: "Công dụng", unit: null },
+  ],
 };
 
 export function getEquipmentSpecFields(type: string | null | undefined): EquipmentSpecField[] {

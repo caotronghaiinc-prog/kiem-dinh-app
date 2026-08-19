@@ -122,6 +122,85 @@ export interface ReportMetadataBinhApLuc {
   don_vi_cap_gcn: string | null;
 }
 
+// PROMPT-39: mẫu "Nồi hơi" -- mirror chính xác cấu trúc ReportMetadataBinhApLuc
+// (PROMPT-33), nhưng KHÁC ở vài điểm: mục 3.2 "Kiểm tra thay thế" không có ở
+// Bình áp lực; mục 4 "Thử nghiệm" chỉ có Thử bền (không Thử kín); mục 5 "Thử
+// vận hành" (16 hạng mục) đã nằm trong checklist generic (migration 0022) nên
+// ở đây chỉ cần nhận xét/đánh giá tổng; mục IV "Áp suất đặt van an toàn" là
+// bảng 2 dòng x 3 cột (hơi bão hòa/hơi quá nhiệt) thay vì 2 dòng text tự do.
+export interface ReportMetadataNoiHoi {
+  // ----- 1. Kiểm tra hồ sơ (3 mảng ĐỘ DÀI CỐ ĐỊNH, giữ đúng thứ tự) -----
+  ho_so_lan_dau: { co: boolean | null }[]; // 5 phần tử
+  ho_so_dinh_ky: { co: boolean | null }[]; // 6 phần tử
+  ho_so_bat_thuong: { co: boolean | null }[]; // 8 phần tử
+  ho_so_nhan_xet: string | null;
+  ho_so_ket_qua: "dat" | "khong_dat" | null;
+
+  // ----- 2. Thiết bị, dụng cụ phục vụ kiểm định (bảng động) -----
+  thiet_bi_dung_cu: {
+    ten_goi_ma_hieu: string;
+    thang_do: string;
+    so_nhan_dang: string;
+    so_gcn_kdhc: string;
+    han_kdhc: string;
+  }[];
+
+  // ----- 3.1 (phụ) Các thiết bị đo lường, bảo vệ, an toàn và tự động -----
+  van_an_toan_kieu_loai: string | null;
+  van_an_toan_kich_co: string | null;
+  van_an_toan_so_luong: string | null;
+  ap_ke_thang_do: string | null;
+  ap_ke_cap_cx: string | null;
+  ap_ke_so_tem_kd: string | null;
+  ap_ke_han_kd: string | null;
+  do_muc_kieu_loai: string | null;
+  do_muc_so_luong: string | null;
+  bao_hieu_muc_nuoc_kieu_loai: string | null;
+  bao_hieu_muc_nuoc_so_luong: string | null;
+  thiet_bi_khac_mo_ta: string | null; // "Số lượng, chủng loại, kích cỡ" -- 1 ô free text
+  kiem_tra_ngoai_trong_nhan_xet: string | null;
+  kiem_tra_ngoai_trong_ket_qua: "dat" | "khong_dat" | null;
+
+  // ----- 3.2 Kết quả áp dụng biện pháp kiểm tra thay thế (nếu có) -----
+  kiem_tra_thay_the: {
+    ly_do_khong_kiem_tra_trong: string | null;
+    bien_phap_da_ap_dung: string | null;
+    pham_vi_kiem_tra: string | null;
+    ket_qua_kiem_tra: string | null;
+    can_cu_ket_luan: string | null;
+    ket_luan_danh_gia: string | null;
+  };
+
+  // ----- 4. Thử nghiệm (CHỈ Thử bền -- không có Thử kín) -----
+  thu_ben: {
+    moi_chat: string | null;
+    ap_suat_bar: string | null;
+    thoi_gian_phut: string | null;
+    ro_ri: "khong" | "co" | null;
+    bien_dang_nut: "khong" | "co" | null;
+    tut_ap: "khong" | "co" | null;
+    khong_thu: boolean;
+  };
+  ly_do_khong_thu: string | null;
+  thu_nghiem_nhan_xet: string | null;
+  thu_nghiem_ket_qua: "dat" | "khong_dat" | null;
+
+  // ----- 5. Thử vận hành -- 16 hạng mục ĐÃ nằm trong checklist generic
+  // (migration 0022), CHỈ cần nhận xét/đánh giá tổng ở đây -----
+  thu_van_hanh_nhan_xet: string | null;
+  thu_van_hanh_ket_qua: "dat" | "khong_dat" | null;
+
+  // ----- IV Kết luận (riêng) -----
+  // Mục IV.3 "Áp suất làm việc lớn nhất cho phép" tái dùng THẲNG
+  // spec_values.ap_suat_lam_viec_lon_nhat, KHÔNG lặp lại ở đây (giống Bình áp lực).
+  nhiet_do_hoi_bao_hoa: string | null; // IV.4 - nhiệt độ làm việc hơi bão hòa (khác nhiệt độ THIẾT KẾ ở mục I)
+  nhiet_do_hoi_qua_nhiet: string | null; // IV.4 - nhiệt độ làm việc hơi quá nhiệt (nếu có)
+  van_an_toan_dat: {
+    hoi_bao_hoa: { ap_suat_mo: string | null; ap_suat_dong: string | null; so_gcn_ngay_cap: string | null };
+    hoi_qua_nhiet: { ap_suat_mo: string | null; ap_suat_dong: string | null; so_gcn_ngay_cap: string | null };
+  };
+}
+
 export interface ReportMetadata {
   hinh_thuc_kiem_dinh?: "lan_dau" | "dinh_ky_hang_nam" | "dinh_ky" | "bat_thuong" | null;
   ly_do_bat_thuong?: string | null;
@@ -135,6 +214,7 @@ export interface ReportMetadata {
   kiem_tra_ho_so?: { day_du: boolean; ly_do: string | null } | null;
   ghi_nhan_khac?: string | null;
   binh_ap_luc?: ReportMetadataBinhApLuc | null;
+  noi_hoi?: ReportMetadataNoiHoi | null;
 }
 
 export interface ReportInspectionHistory {

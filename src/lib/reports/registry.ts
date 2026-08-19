@@ -14,6 +14,7 @@ import { buildThietBiNangToiReportData } from "@/lib/reports/thiet-bi-nang-toi";
 import { buildThietBiNangVanThangReportData } from "@/lib/reports/thiet-bi-nang-van-thang";
 import { buildThietBiNangBanNangReportData } from "@/lib/reports/thiet-bi-nang-ban-nang";
 import { buildBinhApLucReportData } from "@/lib/reports/binh-ap-luc";
+import { buildNoiHoiReportData } from "@/lib/reports/noi-hoi";
 import type { BuildReportDataInput } from "@/lib/reports/shared";
 
 export interface ReportRegistryEntry {
@@ -49,6 +50,14 @@ export const REPORT_REGISTRY: Record<string, ReportRegistryEntry> = {
   "Bình áp lực": {
     templateUrl: "/report-templates/binh-ap-luc.docx",
     buildData: buildBinhApLucReportData,
+  },
+  // PROMPT-39: mẫu Word public/report-templates/noi-hoi.docx CHƯA có --
+  // mentor sẽ đưa file vào repo ở commit riêng sau. Đăng ký sẵn đường dẫn,
+  // KHÔNG tạo file .docx giả -- nút "Xuất biên bản Word" sẽ hiện cho loại
+  // này nhưng báo lỗi tải mẫu thất bại cho tới khi file được thêm vào.
+  "Nồi hơi": {
+    templateUrl: "/report-templates/noi-hoi.docx",
+    buildData: buildNoiHoiReportData,
   },
 };
 
