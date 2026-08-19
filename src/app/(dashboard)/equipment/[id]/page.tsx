@@ -111,9 +111,17 @@ export default async function EquipmentDetailPage(
           )}
         </div>
         {canEdit && (
-          <Button asChild variant="outline">
-            <Link href={`/equipment/${equipment.id}/edit`}>Sửa</Link>
-          </Button>
+          <div className="flex gap-2">
+            <Button asChild variant="outline">
+              <Link href={`/equipment/${equipment.id}/edit`}>Sửa</Link>
+            </Button>
+            {/* PROMPT-36: điền sẵn form thêm mới từ thiết bị này -- không
+                sửa/ghi đè thiết bị nguồn, chỉ là điểm khởi đầu cho 1 thiết
+                bị mới (xem equipment/new/page.tsx). */}
+            <Button asChild variant="outline">
+              <Link href={`/equipment/new?duplicateFrom=${equipment.id}`}>Nhân bản</Link>
+            </Button>
+          </div>
         )}
       </div>
 
