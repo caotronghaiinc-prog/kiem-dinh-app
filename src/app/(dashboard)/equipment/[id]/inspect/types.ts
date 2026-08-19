@@ -31,4 +31,8 @@ export interface InspectEquipment {
   id: string;
   code: string;
   name: string;
+  // PROMPT-33: cần biết loại thiết bị để render có điều kiện form riêng cho
+  // "Bình áp lực" (mẫu I-V, khác hẳn A/B/C của Thiết bị nâng) -- xem
+  // binh-ap-luc-extra-form.tsx.
+  type: string | null;
 }
