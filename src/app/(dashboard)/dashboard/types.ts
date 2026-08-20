@@ -14,3 +14,14 @@ export interface EquipmentAlertRow {
   // object đơn, không phải mảng.
   customer: { company_name: string } | null;
 }
+
+// PROMPT-43: Widget "Cảnh báo hạn hiệu chuẩn dụng cụ đo" (mirror Widget 1) --
+// calibration_not_applicable = true bị loại khỏi đếm màu VÀ danh sách gần
+// hết hạn ngay ở dashboard/page.tsx trước khi truyền xuống widget (coi như
+// không có hạn cần theo dõi), nên type này không cần field đó.
+export interface ToolAlertRow {
+  id: string;
+  code: string;
+  name: string;
+  calibration_due_date: string | null;
+}

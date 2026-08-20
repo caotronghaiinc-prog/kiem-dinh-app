@@ -5,7 +5,8 @@ import { ExpiryAlertWidget } from "./expiry-alert-widget";
 import { InspectionStatsWidget } from "./inspection-stats-widget";
 import { NewCustomersWidget } from "./new-customers-widget";
 import { EquipmentStatusWidget } from "./equipment-status-widget";
-import type { EquipmentAlertRow } from "./types";
+import { CalibrationAlertWidget } from "./calibration-alert-widget";
+import type { EquipmentAlertRow, ToolAlertRow } from "./types";
 
 // Chuỗi ngày dạng YYYY-MM-DD dùng cho .gte()/.lt() trên cột date lẫn
 // timestamptz -- Postgres tự cast, không cần format riêng cho từng cột.
@@ -35,6 +36,7 @@ export default async function DashboardPage() {
     { count: pendingCount },
     { count: newCustomersThisMonth },
     { count: newCustomersLastMonth },
+    { data: toolsData },
   ] = await Promise.all([
     // Chỉ 4 cột cần thiết + lọc sẵn status != 'inactive' -- widget 1 và 4
     // dùng chung 1 lần fetch này, tự tính đỏ/vàng/xanh bằng
@@ -72,6 +74,9 @@ export default async function DashboardPage() {
       .select("id", { count: "exact", head: true })
       .gte("created_at", isoDate(lastMonthStart))
       .lt("created_at", isoDate(thisMonthStart)),
+    supabase
+      .from("inspection_tools")
+      .select("id, code, name, calibration_due_date, calibration_not_applicable"),
   ]);
 
   const equipment = (equipmentData ?? []) as unknown as EquipmentAlertRow[];
@@ -80,6 +85,17 @@ export default async function DashboardPage() {
   for (const item of equipment) {
     colorCounts[getExpiryStatus(item.expiry_date).color] += 1;
   }
+
+  // calibration_not_applicable = true -- coi như không có hạn cần theo dõi,
+  // loại khỏi widget ngay ở đây (xem ghi chú ToolAlertRow ở types.ts).
+  const tools: ToolAlertRow[] = (toolsData ?? [])
+    .filter((t) => !t.calibration_not_applicable)
+    .map((t) => ({
+      id: t.id,
+      code: t.code,
+      name: t.name,
+      calibration_due_date: t.calibration_due_date,
+    }));
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-6 p-8">
@@ -108,6 +124,7 @@ export default async function DashboardPage() {
           expired={colorCounts.red}
           inactive={inactiveCount ?? 0}
         />
+        <CalibrationAlertWidget tools={tools} />
       </div>
     </div>
   );
