@@ -26,7 +26,21 @@ import {
   NoiGiaNhietDauExtraForm,
   type NoiGiaNhietDauExtraFormHandle,
 } from "./noi-gia-nhiet-dau-extra-form";
-import type { ChecklistItem, ChecklistResult, ChecklistTemplate, InspectEquipment } from "./types";
+import { AttachmentLink } from "../attachment-link";
+import { InspectionPhotoThumbnails } from "../inspection-photo-thumbnails";
+import type {
+  ReportMetadataBinhApLuc,
+  ReportMetadataNoiHoi,
+  ReportMetadataNoiGiaNhietDau,
+} from "@/lib/reports/shared";
+import type { InspectionPhotoRow } from "../types";
+import type {
+  ChecklistItem,
+  ChecklistResult,
+  ChecklistTemplate,
+  InspectEquipment,
+  PresenceValue,
+} from "./types";
 
 type HinhThuc = "lan_dau" | "dinh_ky_hang_nam" | "dinh_ky" | "bat_thuong";
 type HoSoStatus = "day_du" | "khong_day_du";
@@ -112,22 +126,78 @@ async function compensateDeleteInspectionHistory(
   return Boolean(deleted && deleted.length > 0);
 }
 
-function makeInitialItemStates(items: ChecklistItem[]): Record<string, ChecklistItemState> {
+function makeInitialItemStates(
+  items: ChecklistItem[],
+  existingResults?: InspectChecklistInitialData["checklistResults"]
+): Record<string, ChecklistItemState> {
   const map: Record<string, ChecklistItemState> = {};
   for (const item of items) {
     map[item.id] = { result: null, presence_value: null, values: {}, note: "" };
   }
+  // PROMPT-50: sửa bản ghi kiểm định -- điền sẵn kết quả checklist đã lưu
+  // (inspection_checklist_results) theo checklist_item_id, item nào không
+  // còn khớp (template đổi) thì bỏ qua an toàn.
+  for (const r of existingResults ?? []) {
+    if (map[r.checklist_item_id]) {
+      map[r.checklist_item_id] = {
+        result: r.result,
+        presence_value: r.presence_value,
+        values: r.values ?? {},
+        note: r.note ?? "",
+      };
+    }
+  }
   return map;
+}
+
+// PROMPT-50: dữ liệu bản ghi kiểm định hiện có, dùng điền sẵn form khi
+// mode === "edit". report_metadata khớp đúng cấu trúc submit() dựng ở dưới
+// (header chung + binh_ap_luc/noi_hoi/noi_gia_nhiet_dau riêng theo loại).
+export interface InspectChecklistInitialData {
+  id: string;
+  inspection_date: string;
+  report_number: string | null;
+  new_expiry_date: string | null;
+  notes: string | null;
+  attachment_url: string | null;
+  report_metadata: {
+    hinh_thuc_kiem_dinh: HinhThuc | null;
+    ly_do_bat_thuong: string | null;
+    kiem_dinh_vien: { ten: string; so_hieu: string | null }[];
+    nguoi_chung_kien: { ten: string; chuc_vu: string | null }[];
+    dia_diem_lap_bien_ban: string | null;
+    kien_nghi: string | null;
+    thoi_han_kien_nghi: string | null;
+    so_tem: string | null;
+    vi_tri_tem: string | null;
+    kiem_tra_ho_so: { day_du: boolean; ly_do: string | null } | null;
+    ghi_nhan_khac: string | null;
+    binh_ap_luc: ReportMetadataBinhApLuc | null;
+    noi_hoi: ReportMetadataNoiHoi | null;
+    noi_gia_nhiet_dau: ReportMetadataNoiGiaNhietDau | null;
+  } | null;
+  checklistResults: {
+    checklist_item_id: string;
+    result: ChecklistResult | null;
+    presence_value: PresenceValue | null;
+    values: Record<string, string>;
+    note: string | null;
+  }[];
+  photos: InspectionPhotoRow[];
 }
 
 export function InspectChecklistForm({
   equipment,
   template,
   items,
+  mode = "create",
+  initialData,
 }: {
   equipment: InspectEquipment;
   template: ChecklistTemplate;
   items: ChecklistItem[];
+  mode?: "create" | "edit";
+  initialData?: InspectChecklistInitialData;
 }) {
   const router = useRouter();
   const { toast } = useToast();
@@ -148,15 +218,30 @@ export function InspectChecklistForm({
   const isNoiGiaNhietDau = equipment.type === "Nồi gia nhiệt dầu";
   const noiGiaNhietDauRef = useRef<NoiGiaNhietDauExtraFormHandle>(null);
 
+  // PROMPT-50: report_metadata của bản ghi đang sửa (nếu có) -- đọc tắt cho
+  // gọn thay vì lặp lại initialData?.report_metadata?.xxx ở mọi state dưới.
+  const savedMeta = initialData?.report_metadata;
+
   // ----- Phần đầu -----
-  const [hinhThuc, setHinhThuc] = useState<HinhThuc | null>(null);
-  const [lyDoBatThuong, setLyDoBatThuong] = useState("");
-  const [kiemDinhVien, setKiemDinhVien] = useState<InspectorRow[]>([{ ten: "", so_hieu: "" }]);
+  const [hinhThuc, setHinhThuc] = useState<HinhThuc | null>(() => savedMeta?.hinh_thuc_kiem_dinh ?? null);
+  const [lyDoBatThuong, setLyDoBatThuong] = useState(() => savedMeta?.ly_do_bat_thuong ?? "");
+  const [kiemDinhVien, setKiemDinhVien] = useState<InspectorRow[]>(() =>
+    savedMeta?.kiem_dinh_vien?.length
+      ? savedMeta.kiem_dinh_vien.map((r) => ({ ten: r.ten, so_hieu: r.so_hieu ?? "" }))
+      : [{ ten: "", so_hieu: "" }]
+  );
   const prefilledInspectorRef = useRef(false);
-  const [nguoiChungKien, setNguoiChungKien] = useState<WitnessRow[]>([{ ten: "", chuc_vu: "" }]);
-  const [diaDiem, setDiaDiem] = useState("");
+  const [nguoiChungKien, setNguoiChungKien] = useState<WitnessRow[]>(() =>
+    savedMeta?.nguoi_chung_kien?.length
+      ? savedMeta.nguoi_chung_kien.map((r) => ({ ten: r.ten, chuc_vu: r.chuc_vu ?? "" }))
+      : [{ ten: "", chuc_vu: "" }]
+  );
+  const [diaDiem, setDiaDiem] = useState(() => savedMeta?.dia_diem_lap_bien_ban ?? "");
 
   useEffect(() => {
+    // Sửa bản ghi: giữ đúng kiểm định viên đã lưu, không tự điền theo người
+    // đang sửa (có thể không phải người kiểm định gốc).
+    if (mode !== "create") return;
     if (prefilledInspectorRef.current || !profile?.full_name) return;
     setKiemDinhVien((rows) => {
       if (rows.length === 1 && rows[0].ten === "" && rows[0].so_hieu === "") {
@@ -165,7 +250,7 @@ export function InspectChecklistForm({
       }
       return rows;
     });
-  }, [profile]);
+  }, [profile, mode]);
 
   // ----- Checklist -----
   const sections = useMemo(() => {
@@ -178,7 +263,7 @@ export function InspectChecklistForm({
   }, [items]);
 
   const [itemStates, setItemStates] = useState<Record<string, ChecklistItemState>>(() =>
-    makeInitialItemStates(items)
+    makeInitialItemStates(items, initialData?.checklistResults)
   );
   const [openSections, setOpenSections] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
@@ -195,24 +280,33 @@ export function InspectChecklistForm({
   }, [items, itemStates, allResultsAnswered]);
 
   // ----- Kiểm tra hồ sơ kỹ thuật -----
-  const [hoSoDayDu, setHoSoDayDu] = useState<boolean | null>(null);
-  const [hoSoLyDo, setHoSoLyDo] = useState("");
+  const [hoSoDayDu, setHoSoDayDu] = useState<boolean | null>(() => savedMeta?.kiem_tra_ho_so?.day_du ?? null);
+  const [hoSoLyDo, setHoSoLyDo] = useState(() => savedMeta?.kiem_tra_ho_so?.ly_do ?? "");
 
   // ----- Ghi nhận khác -----
-  const [ghiNhanKhac, setGhiNhanKhac] = useState("");
+  const [ghiNhanKhac, setGhiNhanKhac] = useState(() => savedMeta?.ghi_nhan_khac ?? "");
 
-  // ----- Ảnh kiểm định (mục 8.5, bắt buộc) -----
+  // ----- Ảnh kiểm định (mục 8.5, bắt buộc -- trừ khi sửa và đã có sẵn ảnh
+  // cùng loại từ trước, xem validate()) -----
   const [overallPhotos, setOverallPhotos] = useState<File[]>([]);
   const [defectPhotos, setDefectPhotos] = useState<File[]>([]);
+  const existingOverallPhotos = useMemo(
+    () => initialData?.photos.filter((p) => p.category === "tong_the") ?? [],
+    [initialData]
+  );
+  const existingDefectPhotos = useMemo(
+    () => initialData?.photos.filter((p) => p.category === "chi_tiet_khong_dat") ?? [],
+    [initialData]
+  );
 
   // ----- Kết luận -----
-  const [kienNghi, setKienNghi] = useState("");
-  const [thoiHanKienNghi, setThoiHanKienNghi] = useState("");
-  const [newExpiryDate, setNewExpiryDate] = useState("");
-  const [soTem, setSoTem] = useState("");
-  const [viTriTem, setViTriTem] = useState("");
-  const [inspectionDate, setInspectionDate] = useState(todayIso());
-  const [reportNumber, setReportNumber] = useState("");
+  const [kienNghi, setKienNghi] = useState(() => savedMeta?.kien_nghi ?? "");
+  const [thoiHanKienNghi, setThoiHanKienNghi] = useState(() => savedMeta?.thoi_han_kien_nghi ?? "");
+  const [newExpiryDate, setNewExpiryDate] = useState(() => initialData?.new_expiry_date ?? "");
+  const [soTem, setSoTem] = useState(() => savedMeta?.so_tem ?? "");
+  const [viTriTem, setViTriTem] = useState(() => savedMeta?.vi_tri_tem ?? "");
+  const [inspectionDate, setInspectionDate] = useState(() => initialData?.inspection_date ?? todayIso());
+  const [reportNumber, setReportNumber] = useState(() => initialData?.report_number ?? "");
   const [file, setFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [fileInputKey, setFileInputKey] = useState(0);
@@ -302,10 +396,14 @@ export function InspectChecklistForm({
       }
     }
 
-    if (overallPhotos.length === 0) {
+    if (overallPhotos.length === 0 && existingOverallPhotos.length === 0) {
       errors.push("Vui lòng tải lên ít nhất 1 ảnh tổng thể thiết bị.");
     }
-    if (overallResult === "khong_dat" && defectPhotos.length === 0) {
+    if (
+      overallResult === "khong_dat" &&
+      defectPhotos.length === 0 &&
+      existingDefectPhotos.length === 0
+    ) {
       errors.push("Vui lòng tải lên ít nhất 1 ảnh chi tiết hạng mục không đạt.");
     }
 
@@ -354,7 +452,9 @@ export function InspectChecklistForm({
       return;
     }
 
-    let attachmentPath: string | null = null;
+    // Sửa (mode="edit"): GIỮ NGUYÊN file đính kèm cũ theo mặc định, chỉ
+    // thay khi người dùng chọn file mới -- không bắt buộc phải xóa/chọn lại.
+    let attachmentPath: string | null = mode === "edit" ? (initialData?.attachment_url ?? null) : null;
     if (file) {
       const dotIndex = file.name.lastIndexOf(".");
       const ext = dotIndex >= 0 ? file.name.slice(dotIndex).toLowerCase() : "";
@@ -406,40 +506,84 @@ export function InspectChecklistForm({
       noi_gia_nhiet_dau: isNoiGiaNhietDau ? (noiGiaNhietDauRef.current?.buildMetadata() ?? null) : null,
     };
 
-    const { data: inserted, error: insertError } = await supabase
-      .from("inspection_history")
-      .insert({
-        equipment_id: equipment.id,
-        inspection_date: inspectionDate,
-        // inspection_history.result vẫn dùng enum cũ 'pass'/'fail'/'pending'
-        // (migration 0001, không đổi ở PROMPT-18) -- khác enum
-        // 'dat'/'khong_dat'/'khong_danh_gia' của inspection_checklist_results,
-        // nên phải map lại kết quả tổng ở đây.
-        result: overallResult === "dat" ? "pass" : "fail",
-        report_number: reportNumber.trim() || null,
-        new_expiry_date: newExpiryDate || null,
-        notes: null,
-        inspector_id: user.id,
-        attachment_url: attachmentPath,
-        report_metadata: reportMetadata,
-      })
-      .select("id")
-      .single();
+    // inspection_history.result vẫn dùng enum cũ 'pass'/'fail'/'pending'
+    // (migration 0001, không đổi ở PROMPT-18) -- khác enum
+    // 'dat'/'khong_dat'/'khong_danh_gia' của inspection_checklist_results,
+    // nên phải map lại kết quả tổng ở đây.
+    const historyPayload = {
+      inspection_date: inspectionDate,
+      result: overallResult === "dat" ? ("pass" as const) : ("fail" as const),
+      report_number: reportNumber.trim() || null,
+      new_expiry_date: newExpiryDate || null,
+      attachment_url: attachmentPath,
+      report_metadata: reportMetadata,
+    };
 
-    if (insertError || !inserted) {
-      setSubmitting(false);
-      toast({
-        variant: "destructive",
-        title: "Lưu bản ghi kiểm định thất bại",
-        description: logAndGetSafeMessage(insertError, "Có lỗi xảy ra, vui lòng thử lại."),
-      });
-      return;
+    let historyId: string;
+    if (mode === "edit") {
+      historyId = initialData!.id;
+      const { error: updateError } = await supabase
+        .from("inspection_history")
+        .update(historyPayload)
+        .eq("id", historyId);
+
+      if (updateError) {
+        setSubmitting(false);
+        toast({
+          variant: "destructive",
+          title: "Cập nhật bản ghi kiểm định thất bại",
+          description: logAndGetSafeMessage(updateError, "Có lỗi xảy ra, vui lòng thử lại."),
+        });
+        return;
+      }
+    } else {
+      const { data: inserted, error: insertError } = await supabase
+        .from("inspection_history")
+        .insert({ ...historyPayload, equipment_id: equipment.id, notes: null, inspector_id: user.id })
+        .select("id")
+        .single();
+
+      if (insertError || !inserted) {
+        setSubmitting(false);
+        toast({
+          variant: "destructive",
+          title: "Lưu bản ghi kiểm định thất bại",
+          description: logAndGetSafeMessage(insertError, "Có lỗi xảy ra, vui lòng thử lại."),
+        });
+        return;
+      }
+      historyId = inserted.id;
+    }
+
+    // Sửa: xóa hết kết quả checklist cũ rồi ghi lại toàn bộ -- đơn giản hơn
+    // so khớp item nào đổi/không đổi, đúng theo thiết kế PROMPT-50. Từ đây
+    // trở đi bản ghi inspection_history đã tồn tại (vừa tạo hoặc đã có sẵn)
+    // nên KHÔNG tự xóa lại nếu lỡ có lỗi -- chỉ bù trừ khi mode="create" (bản
+    // ghi mới tạo, mồ côi không checklist thì nên hủy hẳn); mode="edit" mà
+    // xóa cả bản ghi gốc đang sửa sẽ mất luôn dữ liệu lịch sử thật.
+    if (mode === "edit") {
+      const { error: deleteResultsError } = await supabase
+        .from("inspection_checklist_results")
+        .delete()
+        .eq("inspection_history_id", historyId);
+      if (deleteResultsError) {
+        setSubmitting(false);
+        toast({
+          variant: "destructive",
+          title: "Cập nhật checklist thất bại",
+          description: logAndGetSafeMessage(
+            deleteResultsError,
+            "Đã cập nhật thông tin chung nhưng chưa xóa được checklist cũ. Vui lòng thử lại."
+          ),
+        });
+        return;
+      }
     }
 
     const resultsPayload = items.map((item) => {
       const st = itemStates[item.id];
       return {
-        inspection_history_id: inserted.id,
+        inspection_history_id: historyId,
         checklist_item_id: item.id,
         result: st.result,
         presence_value: item.has_presence_flag ? st.presence_value : null,
@@ -453,12 +597,22 @@ export function InspectChecklistForm({
       .insert(resultsPayload);
 
     if (resultsError) {
+      if (mode === "edit") {
+        setSubmitting(false);
+        toast({
+          variant: "destructive",
+          title: "Lưu checklist thất bại",
+          description:
+            "Đã cập nhật thông tin chung nhưng checklist cũ đã bị xóa và chưa ghi lại được. Vui lòng thử lại hoặc báo Admin kiểm tra.",
+        });
+        return;
+      }
       // Không có transaction thật (client gọi PostgREST trực tiếp, mỗi insert
       // là 1 request riêng) -- tự bù trừ bằng cách xóa lại dòng
       // inspection_history vừa tạo để không để lại bản ghi mồ côi không có
       // checklist đi kèm (cascade xóa luôn mọi inspection_checklist_results/
       // inspection_photos đã lỡ ghi được).
-      const deletedOk = await compensateDeleteInspectionHistory(supabase, inserted.id);
+      const deletedOk = await compensateDeleteInspectionHistory(supabase, historyId);
       setSubmitting(false);
       toast({
         variant: "destructive",
@@ -470,9 +624,9 @@ export function InspectChecklistForm({
       return;
     }
 
-    // Ảnh kiểm định (mục 8.5, bắt buộc) -- upload từng file lên cùng bucket
-    // ATTACHMENT_BUCKET rồi insert batch vào inspection_photos. Lỗi ở bước
-    // này áp dụng lại đúng cách bù trừ như bước checklist ở trên.
+    // Ảnh kiểm định -- upload từng file MỚI lên cùng bucket ATTACHMENT_BUCKET
+    // rồi insert batch vào inspection_photos. Khi sửa, đây là ảnh THÊM VÀO
+    // (ảnh cũ giữ nguyên, không xóa/thay -- xem PROMPT-50).
     const photosToUpload: { file: File; category: PhotoCategory }[] = [
       ...overallPhotos.map((file) => ({ file, category: "tong_the" as const })),
       ...defectPhotos.map((file) => ({ file, category: "chi_tiet_khong_dat" as const })),
@@ -484,7 +638,7 @@ export function InspectChecklistForm({
     for (const { file, category } of photosToUpload) {
       const dotIndex = file.name.lastIndexOf(".");
       const ext = dotIndex >= 0 ? file.name.slice(dotIndex).toLowerCase() : "";
-      const path = `${equipment.id}/${inserted.id}/${category}-${crypto.randomUUID()}${ext}`;
+      const path = `${equipment.id}/${historyId}/${category}-${crypto.randomUUID()}${ext}`;
       const { error: uploadError } = await supabase.storage
         .from(ATTACHMENT_BUCKET)
         .upload(path, file, { contentType: file.type || undefined });
@@ -499,7 +653,7 @@ export function InspectChecklistForm({
     if (!photoStepFailed && uploadedPhotos.length > 0) {
       const { error: photosError } = await supabase.from("inspection_photos").insert(
         uploadedPhotos.map((p) => ({
-          inspection_history_id: inserted.id,
+          inspection_history_id: historyId,
           category: p.category,
           storage_path: p.storage_path,
         }))
@@ -508,7 +662,16 @@ export function InspectChecklistForm({
     }
 
     if (photoStepFailed) {
-      const deletedOk = await compensateDeleteInspectionHistory(supabase, inserted.id);
+      if (mode === "edit") {
+        setSubmitting(false);
+        toast({
+          variant: "destructive",
+          title: "Đã lưu bản ghi nhưng thêm ảnh mới thất bại",
+          description: "Ảnh cũ vẫn còn nguyên, chỉ ảnh mới chưa lưu được. Vui lòng thử tải ảnh lại.",
+        });
+        return;
+      }
+      const deletedOk = await compensateDeleteInspectionHistory(supabase, historyId);
       setSubmitting(false);
       toast({
         variant: "destructive",
@@ -521,7 +684,7 @@ export function InspectChecklistForm({
     }
 
     setSubmitting(false);
-    toast({ title: "Đã lưu bản ghi kiểm định" });
+    toast({ title: mode === "edit" ? "Đã lưu thay đổi" : "Đã lưu bản ghi kiểm định" });
     router.push(`/equipment/${equipment.id}`);
   }
 
@@ -724,15 +887,23 @@ export function InspectChecklistForm({
           sau checklist thay vì chen giữa từng section III.3/III.5 để không
           phải đặc cách theo tên section trong vòng lặp checklist dùng
           chung với Thiết bị nâng. */}
-      {isBinhApLuc && <BinhApLucExtraForm ref={binhApLucRef} hinhThuc={hinhThuc} />}
+      {isBinhApLuc && (
+        <BinhApLucExtraForm ref={binhApLucRef} hinhThuc={hinhThuc} initialData={savedMeta?.binh_ap_luc} />
+      )}
 
       {/* Nồi hơi: phần "còn lại" của mẫu (mục 1/2/3.1 phụ/3.2/4/5/IV) --
           xem noi-hoi-extra-form.tsx, cùng lý do gộp 1 khối như Bình áp lực. */}
-      {isNoiHoi && <NoiHoiExtraForm ref={noiHoiRef} hinhThuc={hinhThuc} />}
+      {isNoiHoi && <NoiHoiExtraForm ref={noiHoiRef} hinhThuc={hinhThuc} initialData={savedMeta?.noi_hoi} />}
 
       {/* Nồi gia nhiệt dầu: phần "còn lại" của mẫu (mục 1/2/3.1 phụ/3.2/4/IV)
           -- xem noi-gia-nhiet-dau-extra-form.tsx, cùng lý do gộp 1 khối. */}
-      {isNoiGiaNhietDau && <NoiGiaNhietDauExtraForm ref={noiGiaNhietDauRef} hinhThuc={hinhThuc} />}
+      {isNoiGiaNhietDau && (
+        <NoiGiaNhietDauExtraForm
+          ref={noiGiaNhietDauRef}
+          hinhThuc={hinhThuc}
+          initialData={savedMeta?.noi_gia_nhiet_dau}
+        />
+      )}
 
       {/* Các ghi nhận khác -- tự do, không bắt buộc. Không áp dụng cho Bình
           áp lực/Nồi hơi/Nồi gia nhiệt dầu. */}
@@ -745,22 +916,32 @@ export function InspectChecklistForm({
         </Card>
       )}
 
-      {/* 3- Thu thập hình ảnh (mục 8.5, bắt buộc) */}
+      {/* 3- Thu thập hình ảnh (mục 8.5, bắt buộc -- trừ khi sửa và đã có sẵn
+          ảnh cùng loại từ trước). Sửa: ảnh cũ hiện read-only bên trên, ảnh
+          mới chọn thêm sẽ được CỘNG VÀO (không thay/xóa ảnh cũ). */}
       <Card>
         <CardContent className="flex flex-col gap-4 p-4 sm:p-6">
           <h2 className="text-base font-semibold">Thu thập hình ảnh</h2>
+          {initialData && initialData.photos.length > 0 && (
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-muted-foreground">Ảnh đã có</span>
+              <InspectionPhotoThumbnails photos={initialData.photos} />
+            </div>
+          )}
           <PhotoUploadField
-            label="Ảnh tổng thể thiết bị (có mặt kiểm định viên)"
+            label={
+              mode === "edit" ? "Thêm ảnh tổng thể thiết bị (nếu cần)" : "Ảnh tổng thể thiết bị (có mặt kiểm định viên)"
+            }
             files={overallPhotos}
             onChange={setOverallPhotos}
-            required
+            required={existingOverallPhotos.length === 0}
           />
           {overallResult === "khong_dat" && (
             <PhotoUploadField
-              label="Ảnh chi tiết hạng mục không đạt"
+              label={mode === "edit" ? "Thêm ảnh chi tiết hạng mục không đạt (nếu cần)" : "Ảnh chi tiết hạng mục không đạt"}
               files={defectPhotos}
               onChange={setDefectPhotos}
-              required
+              required={existingDefectPhotos.length === 0}
             />
           )}
         </CardContent>
@@ -834,6 +1015,14 @@ export function InspectChecklistForm({
 
           <div className="flex flex-col gap-2">
             <label className="text-sm font-medium">File đính kèm (PDF/JPG/PNG, tối đa 10MB)</label>
+            {mode === "edit" && initialData?.attachment_url && !file && (
+              <div className="flex items-center gap-2">
+                <AttachmentLink path={initialData.attachment_url} />
+                <span className="text-xs text-muted-foreground">
+                  (chọn file mới bên dưới để thay thế, hoặc để trống giữ nguyên)
+                </span>
+              </div>
+            )}
             <Input
               key={fileInputKey}
               type="file"
@@ -867,7 +1056,7 @@ export function InspectChecklistForm({
         </Button>
         <Button type="button" disabled={submitting} onClick={handleSubmitClick}>
           {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Lưu
+          {mode === "edit" ? "Lưu thay đổi" : "Lưu"}
         </Button>
       </div>
     </div>

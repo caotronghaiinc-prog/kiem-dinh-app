@@ -45,7 +45,7 @@ export default async function EquipmentDetailPage(
     supabase
       .from("inspection_history")
       .select(
-        "id, inspection_date, result, report_number, new_expiry_date, notes, attachment_url, inspector:profiles(full_name), photos:inspection_photos(id, category, storage_path)"
+        "id, inspection_date, result, report_number, new_expiry_date, notes, attachment_url, is_locked, inspector:profiles(full_name), photos:inspection_photos(id, category, storage_path), edit_requests:inspection_edit_requests(id, reason, status, created_at, requested_by:profiles!inspection_edit_requests_requested_by_fkey(full_name))"
       )
       .eq("equipment_id", params.id)
       .order("inspection_date", { ascending: false }),
@@ -79,7 +79,31 @@ export default async function EquipmentDetailPage(
   }
 
   const equipment = equipmentData as unknown as EquipmentDetail;
-  const history = (historyData ?? []) as unknown as InspectionHistoryDetailRow[];
+  // PROMPT-51: mirror cách ToolListItem.activeLoan (PROMPT-43) tính "lượt
+  // đang mở" -- lấy hết edit_requests của bản ghi rồi lọc status='pending'
+  // ở tầng JS thay vì filter embedded resource trong câu select (PostgREST
+  // filter lồng qua nhiều bảng phức tạp hơn cần thiết cho dataset nhỏ này).
+  const history: InspectionHistoryDetailRow[] = (historyData ?? []).map((row) => {
+    const editRequests = (row.edit_requests ?? []) as unknown as {
+      id: string;
+      reason: string;
+      status: string;
+      created_at: string;
+      requested_by: { full_name: string | null } | null;
+    }[];
+    const pending = editRequests.find((r) => r.status === "pending") ?? null;
+    return {
+      ...(row as unknown as Omit<InspectionHistoryDetailRow, "pending_edit_request">),
+      pending_edit_request: pending
+        ? {
+            id: pending.id,
+            reason: pending.reason,
+            requested_by_name: pending.requested_by?.full_name ?? null,
+            created_at: pending.created_at,
+          }
+        : null,
+    };
+  });
   const canEdit = profile?.role === "admin" || profile?.role === "inspector";
   const specFields = getEquipmentSpecFields(equipment.type);
 
@@ -167,6 +191,7 @@ export default async function EquipmentDetailPage(
         equipmentInspectionCycle={equipment.inspection_cycle}
         history={history}
         canEdit={canEdit}
+        userRole={profile?.role ?? null}
         hasChecklistTemplate={hasChecklistTemplate}
       />
     </div>

@@ -196,6 +196,81 @@ function orNull(value: string): string | null {
   return trimmed || null;
 }
 
+function orEmpty(value: string | null | undefined): string {
+  return value ?? "";
+}
+
+// PROMPT-50: sửa bản ghi kiểm định -- chiều ngược lại của buildMetadata(),
+// dựng Draft (camelCase) từ ReportMetadataNoiGiaNhietDau (snake_case) đã lưu
+// ở report_metadata.noi_gia_nhiet_dau. Field nào thiếu rơi về initial.
+function makeDraftFromMetadata(data: ReportMetadataNoiGiaNhietDau): Draft {
+  const initial = makeInitialDraft();
+  return {
+    hoSoLanDau: data.ho_so_lan_dau?.length
+      ? data.ho_so_lan_dau.map((x) => x.co)
+      : initial.hoSoLanDau,
+    hoSoDinhKy: data.ho_so_dinh_ky?.length ? data.ho_so_dinh_ky.map((x) => x.co) : initial.hoSoDinhKy,
+    hoSoBatThuong: data.ho_so_bat_thuong?.length
+      ? data.ho_so_bat_thuong.map((x) => x.co)
+      : initial.hoSoBatThuong,
+    hoSoNhanXet: orEmpty(data.ho_so_nhan_xet),
+    hoSoKetQua: data.ho_so_ket_qua,
+
+    thietBiDungCu: data.thiet_bi_dung_cu ?? [],
+
+    vanAnToanKieuLoai: orEmpty(data.van_an_toan_kieu_loai),
+    vanAnToanKichCo: orEmpty(data.van_an_toan_kich_co),
+    vanAnToanSoLuong: orEmpty(data.van_an_toan_so_luong),
+    apKeThangDo: orEmpty(data.ap_ke_thang_do),
+    apKeCapCx: orEmpty(data.ap_ke_cap_cx),
+    apKeSoTemKd: orEmpty(data.ap_ke_so_tem_kd),
+    apKeHanKd: orEmpty(data.ap_ke_han_kd),
+    nhietKeKieuLoai: orEmpty(data.nhiet_ke_kieu_loai),
+    nhietKeSoTemKdhc: orEmpty(data.nhiet_ke_so_tem_kdhc),
+    nhietKeSoLuong: orEmpty(data.nhiet_ke_so_luong),
+    kiemTraNgoaiTrongNhanXet: orEmpty(data.kiem_tra_ngoai_trong_nhan_xet),
+    kiemTraNgoaiTrongKetQua: data.kiem_tra_ngoai_trong_ket_qua,
+
+    kttLyDo: orEmpty(data.kiem_tra_thay_the?.ly_do_khong_kiem_tra_trong),
+    kttBienPhap: orEmpty(data.kiem_tra_thay_the?.bien_phap_da_ap_dung),
+    kttPhamVi: orEmpty(data.kiem_tra_thay_the?.pham_vi_kiem_tra),
+    kttKetQua: orEmpty(data.kiem_tra_thay_the?.ket_qua_kiem_tra),
+    kttCanCu: orEmpty(data.kiem_tra_thay_the?.can_cu_ket_luan),
+    kttKetLuan: orEmpty(data.kiem_tra_thay_the?.ket_luan_danh_gia),
+
+    thuBen: data.thu_ben
+      ? {
+          moiChat: orEmpty(data.thu_ben.moi_chat),
+          apSuatBar: orEmpty(data.thu_ben.ap_suat_bar),
+          thoiGianPhut: orEmpty(data.thu_ben.thoi_gian_phut),
+          roRi: data.thu_ben.ro_ri,
+          bienDangNut: data.thu_ben.bien_dang_nut,
+          tutAp: data.thu_ben.tut_ap,
+          khongThu: data.thu_ben.khong_thu,
+        }
+      : initial.thuBen,
+    thuKin: data.thu_kin
+      ? {
+          moiChat: orEmpty(data.thu_kin.moi_chat),
+          apSuatBar: orEmpty(data.thu_kin.ap_suat_bar),
+          thoiGianPhut: orEmpty(data.thu_kin.thoi_gian_phut),
+          roRi: data.thu_kin.ro_ri,
+          tutAp: data.thu_kin.tut_ap,
+          khongThu: data.thu_kin.khong_thu,
+        }
+      : initial.thuKin,
+    lyDoKhongThu: orEmpty(data.ly_do_khong_thu),
+    thuNghiemNhanXet: orEmpty(data.thu_nghiem_nhan_xet),
+    thuNghiemKetQua: data.thu_nghiem_ket_qua,
+
+    apSuatCaiDatCungKiemDinh: orEmpty(data.ap_suat_cai_dat_cung_kiem_dinh),
+    apSuatCaiDatKhongCungKiemDinh: orEmpty(data.ap_suat_cai_dat_khong_cung_kiem_dinh),
+    soGcnKetQua: orEmpty(data.so_gcn_ket_qua),
+    ngayCapGcn: orEmpty(data.ngay_cap_gcn),
+    donViCapGcn: orEmpty(data.don_vi_cap_gcn),
+  };
+}
+
 export interface NoiGiaNhietDauExtraFormHandle {
   buildMetadata: () => ReportMetadataNoiGiaNhietDau;
 }
@@ -212,9 +287,11 @@ function hoSoGroupFor(hinhThuc: HinhThucKiemDinh | null): "lan_dau" | "dinh_ky" 
 
 export const NoiGiaNhietDauExtraForm = forwardRef<
   NoiGiaNhietDauExtraFormHandle,
-  { hinhThuc: HinhThucKiemDinh | null }
->(function NoiGiaNhietDauExtraForm({ hinhThuc }, ref) {
-  const [draft, setDraft] = useState<Draft>(makeInitialDraft);
+  { hinhThuc: HinhThucKiemDinh | null; initialData?: ReportMetadataNoiGiaNhietDau | null }
+>(function NoiGiaNhietDauExtraForm({ hinhThuc, initialData }, ref) {
+  const [draft, setDraft] = useState<Draft>(() =>
+    initialData ? makeDraftFromMetadata(initialData) : makeInitialDraft()
+  );
 
   function patch(partial: Partial<Draft>) {
     setDraft((d) => ({ ...d, ...partial }));

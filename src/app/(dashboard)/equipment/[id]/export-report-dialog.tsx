@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { FileDown, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { logAndGetSafeMessage } from "@/lib/errors";
@@ -52,6 +53,7 @@ export function ExportReportDialog({
   inspectionCycle: number | null;
 }) {
   const { toast } = useToast();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [hinhThucLanSau, setHinhThucLanSau] = useState<string>(
@@ -156,8 +158,25 @@ export function ExportReportDialog({
 
       await generateReport(registryEntry.templateUrl, data, photoStoragePaths, fileName);
 
+      // PROMPT-50: khóa bản ghi sau khi xuất -- dùng RPC security definer
+      // (migration 0027) vì RLS "with check" của inspector chặn chính thao
+      // tác tự set is_locked=true. Không throw khi lỗi: file Word đã tải về
+      // thành công rồi, không nên báo "xuất thất bại" chỉ vì bước khóa lỗi.
+      const { error: lockError } = await supabase.rpc("lock_inspection_history", {
+        p_inspection_history_id: inspectionHistoryId,
+      });
+      if (lockError) {
+        console.error("Lock inspection_history failed:", lockError);
+        toast({
+          variant: "destructive",
+          title: "Đã xuất file nhưng khóa bản ghi thất bại",
+          description: "Bản ghi này có thể vẫn sửa được bình thường. Báo lại cho admin nếu cần.",
+        });
+      }
+
       toast({ title: "Đã xuất biên bản Word" });
       setOpen(false);
+      router.refresh();
     } catch (error) {
       toast({
         variant: "destructive",

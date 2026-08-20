@@ -6,7 +6,8 @@ import { InspectionStatsWidget } from "./inspection-stats-widget";
 import { NewCustomersWidget } from "./new-customers-widget";
 import { EquipmentStatusWidget } from "./equipment-status-widget";
 import { CalibrationAlertWidget } from "./calibration-alert-widget";
-import type { EquipmentAlertRow, ToolAlertRow } from "./types";
+import { EditRequestAlertWidget } from "./edit-request-alert-widget";
+import type { EditRequestAlertRow, EquipmentAlertRow, ToolAlertRow } from "./types";
 
 // Chuỗi ngày dạng YYYY-MM-DD dùng cho .gte()/.lt() trên cột date lẫn
 // timestamptz -- Postgres tự cast, không cần format riêng cho từng cột.
@@ -27,6 +28,7 @@ export default async function DashboardPage() {
   const thisMonthStart = currentMonthStart();
   const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   const monthLabel = `${now.getMonth() + 1}/${now.getFullYear()}`;
+  const isAdmin = profile?.role === "admin";
 
   const [
     { data: equipmentData },
@@ -37,6 +39,7 @@ export default async function DashboardPage() {
     { count: newCustomersThisMonth },
     { count: newCustomersLastMonth },
     { data: toolsData },
+    { data: editRequestsData, count: editRequestsCount },
   ] = await Promise.all([
     // Chỉ 4 cột cần thiết + lọc sẵn status != 'inactive' -- widget 1 và 4
     // dùng chung 1 lần fetch này, tự tính đỏ/vàng/xanh bằng
@@ -77,6 +80,19 @@ export default async function DashboardPage() {
     supabase
       .from("inspection_tools")
       .select("id, code, name, calibration_due_date, calibration_not_applicable"),
+    // PROMPT-51: chỉ admin cần thấy -- không query cho role khác, tránh phí
+    // 1 round-trip vô ích (isAdmin đã biết trước từ profile fetch ở trên).
+    isAdmin
+      ? supabase
+          .from("inspection_edit_requests")
+          .select(
+            "id, reason, created_at, requested_by:profiles!inspection_edit_requests_requested_by_fkey(full_name), inspection_history:inspection_history(equipment:equipment(id, code, name))",
+            { count: "exact" }
+          )
+          .eq("status", "pending")
+          .order("created_at", { ascending: false })
+          .limit(5)
+      : Promise.resolve({ data: null, count: null }),
   ]);
 
   const equipment = (equipmentData ?? []) as unknown as EquipmentAlertRow[];
@@ -96,6 +112,29 @@ export default async function DashboardPage() {
       name: t.name,
       calibration_due_date: t.calibration_due_date,
     }));
+
+  // Bỏ qua dòng nào lỡ thiếu equipment (không nên xảy ra vì FK not null
+  // xuyên suốt inspection_edit_requests -> inspection_history -> equipment,
+  // nhưng an toàn hơn khi join lồng nhiều tầng).
+  const editRequests: EditRequestAlertRow[] = (editRequestsData ?? [])
+    .map((r) => {
+      const historyRow = r.inspection_history as unknown as {
+        equipment: { id: string; code: string; name: string } | null;
+      } | null;
+      const equipmentRow = historyRow?.equipment ?? null;
+      if (!equipmentRow) return null;
+      return {
+        id: r.id,
+        reason: r.reason,
+        created_at: r.created_at,
+        requested_by_name:
+          (r.requested_by as unknown as { full_name: string | null } | null)?.full_name ?? null,
+        equipment_id: equipmentRow.id,
+        equipment_code: equipmentRow.code,
+        equipment_name: equipmentRow.name,
+      };
+    })
+    .filter((r): r is EditRequestAlertRow => r !== null);
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-6 p-8">
@@ -125,6 +164,9 @@ export default async function DashboardPage() {
           inactive={inactiveCount ?? 0}
         />
         <CalibrationAlertWidget tools={tools} />
+        {isAdmin && (
+          <EditRequestAlertWidget requests={editRequests} totalCount={editRequestsCount ?? 0} />
+        )}
       </div>
     </div>
   );
