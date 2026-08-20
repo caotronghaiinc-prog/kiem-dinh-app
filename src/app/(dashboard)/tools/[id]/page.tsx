@@ -10,7 +10,8 @@ import {
 } from "@/lib/utils/expiry-status";
 import { TOOL_STATUS_OPTIONS } from "@/lib/tools/form-schema";
 import { LoanHistorySection } from "./loan-history-section";
-import type { CustomerOption, LoanRow, ProfileOption, ToolRecord } from "../types";
+import { CalibrationHistorySection } from "./calibration-history-section";
+import type { CalibrationRow, CustomerOption, LoanRow, ProfileOption, ToolRecord } from "../types";
 
 function formatDate(value: string | null): string | null {
   if (!value) return null;
@@ -38,26 +39,37 @@ export default async function ToolDetailPage(
   const params = await props.params;
   const supabase = await createClient();
 
-  const [{ data: toolData }, { data: loansData }, { data: profilesData }, { data: customersData }, profile] =
-    await Promise.all([
-      supabase
-        .from("inspection_tools")
-        .select(
-          "id, code, name, model, serial_number, ownership_doc, calibration_due_date, calibration_not_applicable, calibration_cert_no, custodian_id, default_location, status, note, custodian:profiles(full_name)"
-        )
-        .eq("id", params.id)
-        .maybeSingle(),
-      supabase
-        .from("inspection_tool_loans")
-        .select(
-          "id, borrowed_at, expected_return_at, returned_at, work_location, note, borrower:profiles!inspection_tool_loans_borrower_id_fkey(full_name), customer:customers(company_name)"
-        )
-        .eq("tool_id", params.id)
-        .order("borrowed_at", { ascending: false }),
-      supabase.from("profiles").select("id, full_name, email").order("full_name", { ascending: true }),
-      supabase.from("customers").select("id, company_name").order("company_name", { ascending: true }),
-      getCurrentUserProfile(),
-    ]);
+  const [
+    { data: toolData },
+    { data: loansData },
+    { data: calibrationsData },
+    { data: profilesData },
+    { data: customersData },
+    profile,
+  ] = await Promise.all([
+    supabase
+      .from("inspection_tools")
+      .select(
+        "id, code, name, model, serial_number, ownership_doc, calibration_due_date, calibration_not_applicable, calibration_cert_no, custodian_id, default_location, status, note, custodian:profiles(full_name)"
+      )
+      .eq("id", params.id)
+      .maybeSingle(),
+    supabase
+      .from("inspection_tool_loans")
+      .select(
+        "id, borrowed_at, expected_return_at, returned_at, work_location, note, borrower:profiles!inspection_tool_loans_borrower_id_fkey(full_name), customer:customers(company_name)"
+      )
+      .eq("tool_id", params.id)
+      .order("borrowed_at", { ascending: false }),
+    supabase
+      .from("inspection_tool_calibrations")
+      .select("id, cert_no, issued_date, due_date, issuer, file_path, note")
+      .eq("tool_id", params.id)
+      .order("created_at", { ascending: false }),
+    supabase.from("profiles").select("id, full_name, email").order("full_name", { ascending: true }),
+    supabase.from("customers").select("id, company_name").order("company_name", { ascending: true }),
+    getCurrentUserProfile(),
+  ]);
 
   if (!toolData) {
     return (
@@ -77,6 +89,7 @@ export default async function ToolDetailPage(
     custodian: { full_name: string | null } | null;
   };
   const loans = (loansData ?? []) as unknown as LoanRow[];
+  const calibrations = (calibrationsData ?? []) as unknown as CalibrationRow[];
   const canEdit = profile?.role === "admin" || profile?.role === "inspector";
   const hasActiveLoan = loans.some((loan) => loan.returned_at === null);
   const calibrationStatus = tool.calibration_not_applicable
@@ -145,6 +158,8 @@ export default async function ToolDetailPage(
           <InfoField label="Ghi chú" value={tool.note} />
         </div>
       </section>
+
+      <CalibrationHistorySection toolId={tool.id} calibrations={calibrations} canEdit={canEdit} />
 
       <LoanHistorySection
         toolId={tool.id}

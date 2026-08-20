@@ -57,3 +57,14 @@ export interface CustomerOption {
   id: string;
   company_name: string;
 }
+
+/** Cho bảng lịch sử hiệu chuẩn ở trang chi tiết dụng cụ (PROMPT-45). */
+export interface CalibrationRow {
+  id: string;
+  cert_no: string | null;
+  issued_date: string | null;
+  due_date: string | null;
+  issuer: string | null;
+  file_path: string | null;
+  note: string | null;
+}
