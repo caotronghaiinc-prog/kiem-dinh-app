@@ -39,9 +39,24 @@ export interface InspectionHistoryDetailRow {
   new_expiry_date: string | null;
   notes: string | null;
   attachment_url: string | null;
+  // PROMPT-50: bản ghi đã xuất biên bản Word thì bị khóa -- inspector không
+  // sửa được nữa (RLS migration 0002), admin luôn sửa được. Dùng để ẩn/hiện
+  // nút "Sửa" ở inspection-history-section.tsx.
+  is_locked: boolean;
   // Quan hệ nhiều-1 (nhiều inspection_history -> 1 profiles) nên Supabase
   // trả về object đơn, không phải mảng.
   inspector: { full_name: string | null } | null;
   // Quan hệ 1-nhiều (PROMPT-19b) -- Supabase trả về mảng.
   photos: InspectionPhotoRow[];
+  // PROMPT-51: yêu cầu "xin mở khóa" đang chờ Admin duyệt (nếu có) -- null
+  // nghĩa là chưa có yêu cầu nào đang pending cho bản ghi này. Dùng để hiện
+  // nút "Xin sửa" (inspector, chưa có pending)/badge "Đang chờ Admin duyệt"
+  // (inspector, đã có pending)/nút duyệt-từ chối (admin) ở
+  // inspection-history-section.tsx.
+  pending_edit_request: {
+    id: string;
+    reason: string;
+    requested_by_name: string | null;
+    created_at: string;
+  } | null;
 }

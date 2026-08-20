@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ChangeEvent } from "react";
+import { useState, type ChangeEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -35,7 +35,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { INSPECTION_RESULT_CONFIG } from "@/lib/inspection/result";
+import { INSPECTION_RESULT_CONFIG, type InspectionResult } from "@/lib/inspection/result";
+import { AttachmentLink } from "./attachment-link";
 import {
   ALLOWED_ATTACHMENT_EXTENSIONS,
   ATTACHMENT_BUCKET,
@@ -56,7 +57,31 @@ const EMPTY_VALUES: InspectionFormValues = {
   notes: "",
 };
 
-export function AddInspectionDialog({ equipmentId }: { equipmentId: string }) {
+// PROMPT-50: dữ liệu bản ghi kiểm định hiện có, dùng điền sẵn form khi
+// mode === "edit" -- equipment KHÔNG có checklist template (xem
+// inspection-history-section.tsx, nhánh còn lại dùng inspect-checklist-form.tsx).
+export interface EditInspectionInitialData {
+  inspection_date: string;
+  result: InspectionResult;
+  report_number: string | null;
+  new_expiry_date: string | null;
+  notes: string | null;
+  attachment_url: string | null;
+}
+
+export function AddInspectionDialog({
+  equipmentId,
+  mode = "create",
+  historyId,
+  initialData,
+  trigger,
+}: {
+  equipmentId: string;
+  mode?: "create" | "edit";
+  historyId?: string;
+  initialData?: EditInspectionInitialData;
+  trigger?: ReactNode;
+}) {
   const router = useRouter();
   const { toast } = useToast();
   const { profile } = useCurrentUserProfile();
@@ -66,9 +91,20 @@ export function AddInspectionDialog({ equipmentId }: { equipmentId: string }) {
   const [fileError, setFileError] = useState<string | null>(null);
   const [fileInputKey, setFileInputKey] = useState(0);
 
+  const defaultValues: InspectionFormValues =
+    mode === "edit" && initialData
+      ? {
+          inspection_date: initialData.inspection_date,
+          result: initialData.result,
+          report_number: initialData.report_number ?? "",
+          new_expiry_date: initialData.new_expiry_date ?? "",
+          notes: initialData.notes ?? "",
+        }
+      : EMPTY_VALUES;
+
   const form = useForm<InspectionFormValues>({
     resolver: zodResolver(inspectionFormSchema),
-    defaultValues: EMPTY_VALUES,
+    defaultValues,
   });
 
   function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
@@ -90,7 +126,7 @@ export function AddInspectionDialog({ equipmentId }: { equipmentId: string }) {
   }
 
   function resetForm() {
-    form.reset(EMPTY_VALUES);
+    form.reset(defaultValues);
     setFile(null);
     setFileError(null);
     setFileInputKey((k) => k + 1);
@@ -120,7 +156,9 @@ export function AddInspectionDialog({ equipmentId }: { equipmentId: string }) {
       return;
     }
 
-    let attachmentPath: string | null = null;
+    // Sửa (mode="edit"): GIỮ NGUYÊN file đính kèm cũ theo mặc định, chỉ
+    // thay khi người dùng chọn file mới -- không bắt buộc phải xóa/chọn lại.
+    let attachmentPath: string | null = mode === "edit" ? (initialData?.attachment_url ?? null) : null;
     if (file) {
       const dotIndex = file.name.lastIndexOf(".");
       const ext = dotIndex >= 0 ? file.name.slice(dotIndex).toLowerCase() : "";
@@ -141,29 +179,35 @@ export function AddInspectionDialog({ equipmentId }: { equipmentId: string }) {
       attachmentPath = path;
     }
 
-    const { error } = await supabase.from("inspection_history").insert({
-      equipment_id: equipmentId,
+    const payload = {
       inspection_date: values.inspection_date,
       result: values.result,
       report_number: values.report_number || null,
       new_expiry_date: values.new_expiry_date || null,
       notes: values.notes || null,
-      inspector_id: user.id,
       attachment_url: attachmentPath,
-    });
+    };
+
+    const { error } =
+      mode === "edit"
+        ? await supabase.from("inspection_history").update(payload).eq("id", historyId!)
+        : await supabase
+            .from("inspection_history")
+            .insert({ ...payload, equipment_id: equipmentId, inspector_id: user.id });
 
     setSubmitting(false);
 
     if (error) {
       toast({
         variant: "destructive",
-        title: "Thêm bản ghi kiểm định thất bại",
+        title:
+          mode === "edit" ? "Cập nhật bản ghi kiểm định thất bại" : "Thêm bản ghi kiểm định thất bại",
         description: logAndGetSafeMessage(error, "Có lỗi xảy ra, vui lòng thử lại."),
       });
       return;
     }
 
-    toast({ title: "Đã thêm bản ghi kiểm định" });
+    toast({ title: mode === "edit" ? "Đã cập nhật bản ghi kiểm định" : "Đã thêm bản ghi kiểm định" });
     resetForm();
     setOpen(false);
     router.refresh();
@@ -172,11 +216,11 @@ export function AddInspectionDialog({ equipmentId }: { equipmentId: string }) {
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button>+ Thêm bản ghi kiểm định</Button>
+        {trigger ?? <Button>+ Thêm bản ghi kiểm định</Button>}
       </DialogTrigger>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Thêm bản ghi kiểm định</DialogTitle>
+          <DialogTitle>{mode === "edit" ? "Sửa bản ghi kiểm định" : "Thêm bản ghi kiểm định"}</DialogTitle>
         </DialogHeader>
 
         <Form {...form}>
@@ -268,6 +312,14 @@ export function AddInspectionDialog({ equipmentId }: { equipmentId: string }) {
               <label className="text-sm font-medium">
                 File đính kèm (PDF/JPG/PNG, tối đa 10MB)
               </label>
+              {mode === "edit" && initialData?.attachment_url && !file && (
+                <div className="flex items-center gap-2">
+                  <AttachmentLink path={initialData.attachment_url} />
+                  <span className="text-xs text-muted-foreground">
+                    (chọn file mới bên dưới để thay thế, hoặc để trống giữ nguyên)
+                  </span>
+                </div>
+              )}
               <Input
                 key={fileInputKey}
                 type="file"
@@ -298,7 +350,7 @@ export function AddInspectionDialog({ equipmentId }: { equipmentId: string }) {
               </Button>
               <Button type="submit" disabled={submitting}>
                 {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Lưu
+                {mode === "edit" ? "Lưu thay đổi" : "Lưu"}
               </Button>
             </DialogFooter>
           </form>

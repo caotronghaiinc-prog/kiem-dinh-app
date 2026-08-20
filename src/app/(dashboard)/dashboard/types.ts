@@ -25,3 +25,18 @@ export interface ToolAlertRow {
   name: string;
   calibration_due_date: string | null;
 }
+
+// PROMPT-51: Widget "Yêu cầu xin sửa đang chờ duyệt" -- chỉ hiện cho admin,
+// tự ẩn hoàn toàn khi không có yêu cầu pending nào (khác ExpiryAlertWidget/
+// CalibrationAlertWidget luôn hiện kèm trạng thái rỗng -- widget này gắn với
+// 1 hành động admin cần làm, không có gì để duyệt thì không cần chiếm chỗ
+// trên dashboard).
+export interface EditRequestAlertRow {
+  id: string;
+  reason: string;
+  created_at: string;
+  requested_by_name: string | null;
+  equipment_id: string;
+  equipment_code: string;
+  equipment_name: string;
+}
