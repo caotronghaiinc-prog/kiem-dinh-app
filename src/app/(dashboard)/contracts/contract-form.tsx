@@ -40,6 +40,9 @@ interface ContractFormProps {
   mode: "create" | "edit";
   contract?: ContractRecord;
   customerOptions: CustomerOption[];
+  /** PROMPT-60 mục 7: "Tạo hợp đồng từ báo giá" -- chỉ áp dụng mode="create". */
+  fromQuoteId?: string;
+  prefill?: { customer_id: string; title: string | null; note: string | null };
 }
 
 function mapContractError(message: string): string {
@@ -48,7 +51,13 @@ function mapContractError(message: string): string {
   return logAndGetSafeMessage(new Error(message), "Có lỗi xảy ra khi lưu hợp đồng. Vui lòng thử lại.");
 }
 
-export function ContractForm({ mode, contract, customerOptions }: ContractFormProps) {
+export function ContractForm({
+  mode,
+  contract,
+  customerOptions,
+  fromQuoteId,
+  prefill,
+}: ContractFormProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [submitting, setSubmitting] = useState(false);
@@ -58,12 +67,12 @@ export function ContractForm({ mode, contract, customerOptions }: ContractFormPr
   const form = useForm<ContractFormValues>({
     resolver: zodResolver(contractFormSchema),
     defaultValues: {
-      customer_id: contract?.customer_id ?? "",
+      customer_id: contract?.customer_id ?? prefill?.customer_id ?? "",
       contract_no: contract?.contract_no ?? "",
-      title: contract?.title ?? "",
+      title: contract?.title ?? prefill?.title ?? "",
       signed_date: contract?.signed_date ?? "",
       status: (contract?.status as ContractFormValues["status"]) ?? "dang_thuc_hien",
-      note: contract?.note ?? "",
+      note: contract?.note ?? prefill?.note ?? "",
     },
   });
 
@@ -136,6 +145,49 @@ export function ContractForm({ mode, contract, customerOptions }: ContractFormPr
             .update({ contract_file_path: filePath })
             .eq("id", inserted.id);
           if (updateFileError) throw updateFileError;
+        }
+
+        // PROMPT-60 mục 7: "Tạo hợp đồng từ báo giá" -- copy CÁC quote_items
+        // CÓ equipment_id sang contract_equipment (bỏ qua item không có
+        // equipment_id, thiết bị đó chưa tồn tại trong /equipment), rồi đánh
+        // dấu báo giá đã chuyển đổi. Không chặn luồng tạo hợp đồng nếu bước
+        // này lỗi -- hợp đồng đã tạo thành công, chỉ báo riêng qua toast.
+        if (fromQuoteId) {
+          const { data: quoteItems } = await supabase
+            .from("quote_items")
+            .select("equipment_id, quantity, unit_price")
+            .eq("quote_id", fromQuoteId);
+
+          const linkedItems = (quoteItems ?? []).filter((i) => i.equipment_id);
+          const skippedCount = (quoteItems?.length ?? 0) - linkedItems.length;
+
+          if (linkedItems.length > 0) {
+            await supabase.from("contract_equipment").insert(
+              linkedItems.map((i) => ({
+                contract_id: inserted.id,
+                equipment_id: i.equipment_id as string,
+                quantity: i.quantity,
+                unit_price: i.unit_price,
+              }))
+            );
+          }
+
+          await supabase
+            .from("quotes")
+            .update({ converted_contract_id: inserted.id, status: "da_chap_nhan" })
+            .eq("id", fromQuoteId);
+
+          toast(
+            skippedCount > 0
+              ? {
+                  title: "Đã thêm hợp đồng",
+                  description: `Còn ${skippedCount} hạng mục chưa có thiết bị trong hệ thống -- thêm tay ở phần Thiết bị trong hợp đồng.`,
+                }
+              : { title: "Đã thêm hợp đồng" }
+          );
+          router.push(`/contracts/${inserted.id}`);
+          router.refresh();
+          return;
         }
 
         toast({ title: "Đã thêm hợp đồng" });
