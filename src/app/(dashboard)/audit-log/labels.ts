@@ -1,7 +1,11 @@
+import { formatCurrency } from "@/lib/utils/currency";
+
 export const TABLE_LABELS: Record<string, string> = {
   equipment: "Thiết bị",
   customers: "Khách hàng",
   inspection_history: "Lịch sử kiểm định",
+  contracts: "Hợp đồng",
+  contract_payments: "Thanh toán hợp đồng",
 };
 
 export function getTableLabel(tableName: string): string {
@@ -18,17 +22,23 @@ function formatDate(value: string): string {
   return new Date(value).toLocaleDateString("vi-VN");
 }
 
+function formatCurrencyValue(value: unknown): string | null {
+  return typeof value === "number" ? formatCurrency(value) : null;
+}
+
 // Nhãn nhận diện bản ghi rút ra từ new_data ?? old_data (bảng khác nhau có
 // cột định danh khác nhau) -- inspection_history không có cột "code" như
 // equipment/customers nên ghép ngày kiểm định + link phụ sang thiết bị liên
-// quan (equipment_id luôn có, cột NOT NULL của bảng này).
+// quan (equipment_id luôn có, cột NOT NULL của bảng này). contract_payments
+// cũng không có cột định danh riêng nên ghép số tiền + link phụ sang hợp
+// đồng liên quan (contract_id luôn có, cột NOT NULL của bảng này).
 export function getRecordInfo(
   tableName: string,
   data: Record<string, unknown> | null
-): { label: string; equipmentId?: string } {
+): { label: string; equipmentId?: string; contractId?: string } {
   if (!data) return { label: "—" };
 
-  if (tableName === "equipment" || tableName === "customers") {
+  if (tableName === "equipment" || tableName === "customers" || tableName === "contracts") {
     return { label: typeof data.code === "string" ? data.code : "—" };
   }
 
@@ -38,6 +48,15 @@ export function getRecordInfo(
     return {
       label: inspectionDate ? `KĐ ngày ${formatDate(inspectionDate)}` : "—",
       equipmentId,
+    };
+  }
+
+  if (tableName === "contract_payments") {
+    const amountLabel = formatCurrencyValue(data.amount);
+    const contractId = typeof data.contract_id === "string" ? data.contract_id : undefined;
+    return {
+      label: amountLabel ? `Thanh toán ${amountLabel}` : "—",
+      contractId,
     };
   }
 

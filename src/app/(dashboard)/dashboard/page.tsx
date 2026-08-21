@@ -7,7 +7,13 @@ import { NewCustomersWidget } from "./new-customers-widget";
 import { EquipmentStatusWidget } from "./equipment-status-widget";
 import { CalibrationAlertWidget } from "./calibration-alert-widget";
 import { EditRequestAlertWidget } from "./edit-request-alert-widget";
-import type { EditRequestAlertRow, EquipmentAlertRow, ToolAlertRow } from "./types";
+import { ContractDebtAlertWidget } from "./contract-debt-alert-widget";
+import type {
+  ContractDebtAlertRow,
+  EditRequestAlertRow,
+  EquipmentAlertRow,
+  ToolAlertRow,
+} from "./types";
 
 // Chuỗi ngày dạng YYYY-MM-DD dùng cho .gte()/.lt() trên cột date lẫn
 // timestamptz -- Postgres tự cast, không cần format riêng cho từng cột.
@@ -40,6 +46,7 @@ export default async function DashboardPage() {
     { count: newCustomersLastMonth },
     { data: toolsData },
     { data: editRequestsData, count: editRequestsCount },
+    { data: contractsData },
   ] = await Promise.all([
     // Chỉ 4 cột cần thiết + lọc sẵn status != 'inactive' -- widget 1 và 4
     // dùng chung 1 lần fetch này, tự tính đỏ/vàng/xanh bằng
@@ -93,6 +100,13 @@ export default async function DashboardPage() {
           .order("created_at", { ascending: false })
           .limit(5)
       : Promise.resolve({ data: null, count: null }),
+    // total_value/paid_total không so sánh trực tiếp được qua filter
+    // PostgREST (2 cột cùng bảng) -- lấy hết hợp đồng chưa hủy rồi tự lọc
+    // debt > 0 + sắp xếp + cắt top 5 ở JS bên dưới.
+    supabase
+      .from("contracts")
+      .select("id, code, contract_no, total_value, paid_total, customer:customers(company_name)")
+      .neq("status", "huy"),
   ]);
 
   const equipment = (equipmentData ?? []) as unknown as EquipmentAlertRow[];
@@ -136,6 +150,19 @@ export default async function DashboardPage() {
     })
     .filter((r): r is EditRequestAlertRow => r !== null);
 
+  const contractDebts: ContractDebtAlertRow[] = (contractsData ?? [])
+    .map((c) => ({
+      id: c.id,
+      code: c.code,
+      contract_no: c.contract_no,
+      customer_name:
+        (c.customer as unknown as { company_name: string } | null)?.company_name ?? null,
+      debt: c.total_value - c.paid_total,
+    }))
+    .filter((c) => c.debt > 0)
+    .sort((a, b) => b.debt - a.debt)
+    .slice(0, 5);
+
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-6 p-8">
       <div>
@@ -164,6 +191,7 @@ export default async function DashboardPage() {
           inactive={inactiveCount ?? 0}
         />
         <CalibrationAlertWidget tools={tools} />
+        <ContractDebtAlertWidget contracts={contractDebts} />
         {isAdmin && (
           <EditRequestAlertWidget requests={editRequests} totalCount={editRequestsCount ?? 0} />
         )}
