@@ -31,7 +31,6 @@ import {
   ATTACHMENT_BUCKET,
   validateAttachmentFile,
 } from "@/lib/inspection/form-schema";
-import { formatNumberInput } from "@/lib/utils/currency";
 import { contractFormSchema, type ContractFormValues } from "@/lib/contracts/form-schema";
 import { CONTRACT_STATUS_OPTIONS } from "@/lib/contracts/status";
 import { AttachmentLink } from "./attachment-link";
@@ -63,7 +62,6 @@ export function ContractForm({ mode, contract, customerOptions }: ContractFormPr
       contract_no: contract?.contract_no ?? "",
       title: contract?.title ?? "",
       signed_date: contract?.signed_date ?? "",
-      total_value: contract?.total_value ? String(contract.total_value) : "",
       status: (contract?.status as ContractFormValues["status"]) ?? "dang_thuc_hien",
       note: contract?.note ?? "",
     },
@@ -112,7 +110,6 @@ export function ContractForm({ mode, contract, customerOptions }: ContractFormPr
       contract_no: values.contract_no,
       title: values.title || null,
       signed_date: values.signed_date || null,
-      total_value: Number(values.total_value),
       status: values.status,
       note: values.note || null,
     };
@@ -181,11 +178,17 @@ export function ContractForm({ mode, contract, customerOptions }: ContractFormPr
           <div className="flex flex-col gap-2">
             <label className="text-sm font-medium">Mã hợp đồng</label>
             <Input value={contract.code} disabled />
+            <p className="text-sm text-muted-foreground">
+              Giá trị hợp đồng được tự động tính bằng tổng số lượng × đơn giá thiết bị, sửa ở trang
+              chi tiết hợp đồng.
+            </p>
           </div>
         )}
         {mode === "create" && (
           <p className="text-sm text-muted-foreground">
-            Mã hợp đồng sẽ được tự động tạo sau khi lưu (dạng HD-2026-001).
+            Mã hợp đồng sẽ được tự động tạo sau khi lưu (dạng HD-2026-001). Giá trị hợp đồng được tự
+            động tính bằng tổng số lượng × đơn giá thiết bị, cập nhật ở trang chi tiết hợp đồng sau
+            khi tạo.
           </p>
         )}
 
@@ -251,25 +254,6 @@ export function ContractForm({ mode, contract, customerOptions }: ContractFormPr
                 <FormLabel>Ngày ký</FormLabel>
                 <FormControl>
                   <Input type="date" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="total_value"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Giá trị hợp đồng (đ) *</FormLabel>
-                <FormControl>
-                  <Input
-                    inputMode="numeric"
-                    placeholder="15.000.000"
-                    value={formatNumberInput(field.value)}
-                    onChange={(e) => field.onChange(e.target.value.replace(/\D/g, ""))}
-                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>

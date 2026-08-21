@@ -136,3 +136,15 @@ export function getSpecSectionLabel(type: string | null | undefined): string {
   const suffix = type.includes(" - ") ? type.split(" - ").pop() : type;
   return (suffix ?? "").toLowerCase();
 }
+
+// PROMPT-59: "Mã hiệu" dùng cho bảng kê thiết bị trong hợp đồng -- tên key
+// KHÔNG đồng nhất giữa các loại thiết bị (6 loại "Thiết bị nâng - *" dùng
+// ma_hieu, "Bình áp lực"/"Nồi hơi"/"Nồi gia nhiệt dầu" gộp chung "Loại, mã
+// hiệu" dưới key loai_ma_hieu). Loại nào chưa có trong EQUIPMENT_SPEC_FIELDS
+// (thang máy, NDT...) trả về null, nơi gọi tự hiện "—".
+export function getEquipmentModelCode(
+  specValues: Record<string, string> | null | undefined
+): string | null {
+  if (!specValues) return null;
+  return specValues.ma_hieu ?? specValues.loai_ma_hieu ?? null;
+}

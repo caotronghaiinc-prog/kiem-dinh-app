@@ -34,9 +34,19 @@ export interface ContractDetail extends ContractRecord {
 }
 
 export interface ContractEquipmentRow {
-  id: string; // id dòng contract_equipment (dùng để "Gỡ")
+  id: string; // id dòng contract_equipment (dùng để "Gỡ"/"Sửa")
   equipment_id: string;
-  equipment: { code: string; name: string; type: string | null } | null;
+  unit_price: number;
+  quantity: number;
+  so_tem: string | null;
+  ngay_kiem_dinh: string | null;
+  equipment: {
+    code: string;
+    name: string;
+    type: string | null;
+    serial_number: string | null;
+    spec_values: Record<string, string> | null;
+  } | null;
 }
 
 export interface ContractPaymentRow {

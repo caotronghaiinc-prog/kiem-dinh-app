@@ -48,7 +48,9 @@ export default async function ContractDetailPage(
         .maybeSingle(),
       supabase
         .from("contract_equipment")
-        .select("id, equipment_id, equipment:equipment(code, name, type)")
+        .select(
+          "id, equipment_id, unit_price, quantity, so_tem, ngay_kiem_dinh, equipment:equipment(code, name, type, serial_number, spec_values)"
+        )
         .eq("contract_id", params.id)
         .order("created_at", { ascending: true }),
       supabase
@@ -136,7 +138,14 @@ export default async function ContractDetailPage(
         </div>
       </section>
 
-      <ContractEquipmentSection contractId={contract.id} equipment={equipment} canEdit={canEdit} />
+      <ContractEquipmentSection
+        contractId={contract.id}
+        contractCode={contract.code}
+        contractNo={contract.contract_no}
+        customerName={contract.customer?.company_name ?? null}
+        equipment={equipment}
+        canEdit={canEdit}
+      />
 
       <ContractPaymentsSection
         contractId={contract.id}
