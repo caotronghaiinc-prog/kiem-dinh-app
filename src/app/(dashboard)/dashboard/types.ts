@@ -40,3 +40,15 @@ export interface EditRequestAlertRow {
   equipment_code: string;
   equipment_name: string;
 }
+
+// PROMPT-57: Widget "Hợp đồng còn công nợ" -- tự ẩn hoàn toàn khi không có
+// hợp đồng nào còn nợ (mirror EditRequestAlertRow, không phải mirror
+// CalibrationAlertWidget). debt = total_value - paid_total, tính sẵn ở
+// page.tsx để widget không cần biết logic tính toán.
+export interface ContractDebtAlertRow {
+  id: string;
+  code: string;
+  contract_no: string;
+  customer_name: string | null;
+  debt: number;
+}

@@ -18,6 +18,7 @@ const BASE_NAV_LINKS = [
   { href: "/customers", label: "Khách hàng" },
   { href: "/equipment", label: "Thiết bị" },
   { href: "/tools", label: "Dụng cụ đo" },
+  { href: "/contracts", label: "Hợp đồng" },
 ];
 
 export default async function DashboardLayout({

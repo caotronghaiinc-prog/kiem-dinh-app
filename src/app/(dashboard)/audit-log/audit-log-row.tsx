@@ -34,6 +34,14 @@ export function AuditLogTableRow({ log }: { log: AuditLogRowType }) {
               Xem thiết bị
             </Link>
           )}
+          {record.contractId && (
+            <Link
+              href={`/contracts/${record.contractId}`}
+              className="text-xs text-primary hover:underline"
+            >
+              Xem hợp đồng
+            </Link>
+          )}
         </div>
       </TableCell>
       <TableCell>
