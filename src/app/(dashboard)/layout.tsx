@@ -13,7 +13,7 @@ const ROLE_LABELS: Record<UserRole, string> = {
   office: "Văn phòng",
 };
 
-const NAV_LINKS = [
+const BASE_NAV_LINKS = [
   { href: "/dashboard", label: "Tổng quan" },
   { href: "/customers", label: "Khách hàng" },
   { href: "/equipment", label: "Thiết bị" },
@@ -29,6 +29,12 @@ export default async function DashboardLayout({
   const userLabel = profile
     ? `${profile.full_name || profile.email} · ${ROLE_LABELS[profile.role] ?? profile.role}`
     : null;
+  // PROMPT-54: "Nhật ký thay đổi" (/audit-log) chỉ dành cho admin (RLS +
+  // requireRole đã chặn ở tầng trang, ẩn link luôn cho gọn UI với role khác).
+  const NAV_LINKS =
+    profile?.role === "admin"
+      ? [...BASE_NAV_LINKS, { href: "/audit-log", label: "Nhật ký thay đổi" }]
+      : BASE_NAV_LINKS;
 
   return (
     <div className="min-h-screen">
