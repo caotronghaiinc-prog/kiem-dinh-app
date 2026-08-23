@@ -203,6 +203,36 @@ export function InspectChecklistForm({
   const { toast } = useToast();
   const { profile } = useCurrentUserProfile();
 
+  // PROMPT-63: cảnh báo (KHÔNG chặn) khi CHÍNH người đang nhập chưa có
+  // chứng chỉ còn hạn ghi nhận đúng phạm vi loại thiết bị này -- mirror
+  // logic ở add-inspection-dialog.tsx, nhưng form này không phải dialog nên
+  // kiểm tra ngay khi có đủ profile/equipment.type, không đợi "mở".
+  const [scopeOk, setScopeOk] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (!profile?.id || !equipment.type) {
+      setScopeOk(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const supabase = createClient();
+      const today = new Date().toISOString().slice(0, 10);
+      const { data } = await supabase
+        .from("inspector_certificates")
+        .select("equipment_types, expiry_date")
+        .eq("profile_id", profile.id);
+      if (cancelled) return;
+      const hasMatch = (data ?? []).some(
+        (c) => c.expiry_date >= today && (c.equipment_types ?? []).includes(equipment.type as string)
+      );
+      setScopeOk(hasMatch);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [profile?.id, equipment.type]);
+
   // PROMPT-33: mẫu "Bình áp lực" (mục I-V) khác hẳn cấu trúc A/B/C của
   // Thiết bị nâng -- ẩn khối "Kiểm tra hồ sơ kỹ thuật"/"Ghi nhận khác"
   // dùng chung (không áp dụng cho loại này) và render thêm
@@ -1042,6 +1072,13 @@ export function InspectChecklistForm({
               {err}
             </p>
           ))}
+        </div>
+      )}
+
+      {scopeOk === false && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+          Bạn chưa có chứng chỉ còn hạn ghi nhận phạm vi phù hợp với loại thiết bị này trong hệ thống.
+          Vẫn có thể tiếp tục lưu.
         </div>
       )}
 

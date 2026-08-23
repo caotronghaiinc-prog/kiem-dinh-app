@@ -8,7 +8,9 @@ import { EquipmentStatusWidget } from "./equipment-status-widget";
 import { CalibrationAlertWidget } from "./calibration-alert-widget";
 import { EditRequestAlertWidget } from "./edit-request-alert-widget";
 import { ContractDebtAlertWidget } from "./contract-debt-alert-widget";
+import { CertificateAlertWidget } from "./certificate-alert-widget";
 import type {
+  CertificateAlertRow,
   ContractDebtAlertRow,
   EditRequestAlertRow,
   EquipmentAlertRow,
@@ -47,6 +49,7 @@ export default async function DashboardPage() {
     { data: toolsData },
     { data: editRequestsData, count: editRequestsCount },
     { data: contractsData },
+    { data: certificatesData },
   ] = await Promise.all([
     // Chỉ 4 cột cần thiết + lọc sẵn status != 'inactive' -- widget 1 và 4
     // dùng chung 1 lần fetch này, tự tính đỏ/vàng/xanh bằng
@@ -107,6 +110,16 @@ export default async function DashboardPage() {
       .from("contracts")
       .select("id, code, contract_no, total_value, paid_total, customer:customers(company_name)")
       .neq("status", "huy"),
+    // PROMPT-63: chỉ admin cần thấy -- không query cho role khác (mirror
+    // cách query inspection_edit_requests đã làm có điều kiện).
+    isAdmin
+      ? supabase
+          .from("inspector_certificates")
+          .select(
+            "id, profile_id, certificate_type, certificate_number, expiry_date, profile:profiles(full_name)"
+          )
+          .order("expiry_date", { ascending: true })
+      : Promise.resolve({ data: null }),
   ]);
 
   const equipment = (equipmentData ?? []) as unknown as EquipmentAlertRow[];
@@ -149,6 +162,8 @@ export default async function DashboardPage() {
       };
     })
     .filter((r): r is EditRequestAlertRow => r !== null);
+
+  const certificates = (certificatesData ?? []) as unknown as CertificateAlertRow[];
 
   const contractDebts: ContractDebtAlertRow[] = (contractsData ?? [])
     .map((c) => ({
@@ -195,6 +210,7 @@ export default async function DashboardPage() {
         {isAdmin && (
           <EditRequestAlertWidget requests={editRequests} totalCount={editRequestsCount ?? 0} />
         )}
+        {isAdmin && <CertificateAlertWidget certificates={certificates} />}
       </div>
     </div>
   );
