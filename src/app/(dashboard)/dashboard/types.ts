@@ -52,3 +52,15 @@ export interface ContractDebtAlertRow {
   customer_name: string | null;
   debt: number;
 }
+
+// PROMPT-63: Widget "Chứng chỉ sắp/đã hết hạn" -- chỉ hiện cho admin (mirror
+// EditRequestAlertWidget), tính màu đỏ/vàng/xanh từ CHÍNH expiry_date qua
+// getExpiryStatus(), không cache trạng thái riêng.
+export interface CertificateAlertRow {
+  id: string;
+  profile_id: string;
+  certificate_type: string | null;
+  certificate_number: string | null;
+  expiry_date: string;
+  profile: { full_name: string | null } | null;
+}

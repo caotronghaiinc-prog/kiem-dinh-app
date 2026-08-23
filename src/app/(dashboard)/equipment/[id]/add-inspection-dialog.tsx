@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ChangeEvent, type ReactNode } from "react";
+import { useEffect, useState, type ChangeEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -71,12 +71,14 @@ export interface EditInspectionInitialData {
 
 export function AddInspectionDialog({
   equipmentId,
+  equipmentType = null,
   mode = "create",
   historyId,
   initialData,
   trigger,
 }: {
   equipmentId: string;
+  equipmentType?: string | null;
   mode?: "create" | "edit";
   historyId?: string;
   initialData?: EditInspectionInitialData;
@@ -90,6 +92,34 @@ export function AddInspectionDialog({
   const [file, setFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [fileInputKey, setFileInputKey] = useState(0);
+  // PROMPT-63: cảnh báo (KHÔNG chặn) khi CHÍNH người đang nhập chưa có
+  // chứng chỉ còn hạn ghi nhận đúng phạm vi loại thiết bị này -- null =
+  // chưa kiểm tra xong/không áp dụng, false = thiếu, true = đã có.
+  const [scopeOk, setScopeOk] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (!open || !profile?.id || !equipmentType) {
+      setScopeOk(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const supabase = createClient();
+      const today = new Date().toISOString().slice(0, 10);
+      const { data } = await supabase
+        .from("inspector_certificates")
+        .select("equipment_types, expiry_date")
+        .eq("profile_id", profile.id);
+      if (cancelled) return;
+      const hasMatch = (data ?? []).some(
+        (c) => c.expiry_date >= today && (c.equipment_types ?? []).includes(equipmentType)
+      );
+      setScopeOk(hasMatch);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, profile?.id, equipmentType]);
 
   const defaultValues: InspectionFormValues =
     mode === "edit" && initialData
@@ -338,6 +368,13 @@ export function AddInspectionDialog({
               </span>
               <span className="text-sm">{profile?.full_name || profile?.email || "—"}</span>
             </div>
+
+            {scopeOk === false && (
+              <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                Bạn chưa có chứng chỉ còn hạn ghi nhận phạm vi phù hợp với loại thiết bị này trong hệ
+                thống. Vẫn có thể tiếp tục lưu.
+              </div>
+            )}
 
             <DialogFooter>
               <Button

@@ -63,6 +63,7 @@ export function InspectionHistorySection({
     return (
       <AddInspectionDialog
         equipmentId={equipmentId}
+        equipmentType={equipmentType}
         mode="edit"
         historyId={item.id}
         initialData={{
@@ -129,7 +130,7 @@ export function InspectionHistorySection({
               <Link href={`/equipment/${equipmentId}/inspect`}>+ Thêm bản ghi kiểm định</Link>
             </Button>
           ) : (
-            <AddInspectionDialog equipmentId={equipmentId} />
+            <AddInspectionDialog equipmentId={equipmentId} equipmentType={equipmentType} />
           ))}
       </div>
 

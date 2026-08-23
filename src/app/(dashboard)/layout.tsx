@@ -1,17 +1,10 @@
 import Link from "next/link";
 import Image from "next/image";
 import { getCurrentUserProfile } from "@/lib/auth/get-current-user-profile";
+import { ROLE_LABELS } from "@/lib/auth/role-labels";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { GlobalSearch } from "@/components/search/global-search";
 import { MobileNav } from "@/components/nav/mobile-nav";
-import type { UserRole } from "@/lib/types/profile";
-
-const ROLE_LABELS: Record<UserRole, string> = {
-  admin: "Quản trị viên",
-  inspector: "Kiểm định viên",
-  accountant: "Kế toán",
-  office: "Văn phòng",
-};
 
 const BASE_NAV_LINKS = [
   { href: "/dashboard", label: "Tổng quan" },
@@ -20,6 +13,13 @@ const BASE_NAV_LINKS = [
   { href: "/tools", label: "Dụng cụ đo" },
   { href: "/quotes", label: "Báo giá" },
   { href: "/contracts", label: "Hợp đồng" },
+];
+
+// PROMPT-63: gộp chung 1 mảng cho mọi nav link admin-only thay vì lặp điều
+// kiện profile?.role === "admin" nhiều chỗ.
+const ADMIN_ONLY_NAV_LINKS = [
+  { href: "/employees", label: "Nhân viên" },
+  { href: "/audit-log", label: "Nhật ký thay đổi" },
 ];
 
 export default async function DashboardLayout({
@@ -31,12 +31,10 @@ export default async function DashboardLayout({
   const userLabel = profile
     ? `${profile.full_name || profile.email} · ${ROLE_LABELS[profile.role] ?? profile.role}`
     : null;
-  // PROMPT-54: "Nhật ký thay đổi" (/audit-log) chỉ dành cho admin (RLS +
+  // PROMPT-54/63: "Nhật ký thay đổi" và "Nhân viên" chỉ dành cho admin (RLS +
   // requireRole đã chặn ở tầng trang, ẩn link luôn cho gọn UI với role khác).
   const NAV_LINKS =
-    profile?.role === "admin"
-      ? [...BASE_NAV_LINKS, { href: "/audit-log", label: "Nhật ký thay đổi" }]
-      : BASE_NAV_LINKS;
+    profile?.role === "admin" ? [...BASE_NAV_LINKS, ...ADMIN_ONLY_NAV_LINKS] : BASE_NAV_LINKS;
 
   return (
     <div className="min-h-screen">
