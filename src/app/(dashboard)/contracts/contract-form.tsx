@@ -277,7 +277,7 @@ export function ContractForm({
               <FormItem>
                 <FormLabel>Số hợp đồng *</FormLabel>
                 <FormControl>
-                  <Input placeholder="15/2026/HĐKT-INCOSAF" {...field} />
+                  <Input placeholder="15/2026/HĐKT-INCERT" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>

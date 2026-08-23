@@ -13,6 +13,7 @@ import {
 } from "docx";
 import { numberToVietnameseWords } from "@/lib/utils/number-to-words-vi";
 import type { ContractDetail, ContractEquipmentRow } from "@/app/(dashboard)/contracts/types";
+import { INCERT_COMPANY } from "./company-info";
 
 // PROMPT-61: Biên bản nghiệm thu -- văn bản pháp lý thật (căn cứ thanh
 // toán), bố cục 16 mục đã chốt qua thực tế với anh Hải qua skill Cowork
@@ -36,11 +37,10 @@ const MARGIN_RIGHT_DXA = 1134;
 const MARGIN_TOP_BOTTOM_DXA = 1134;
 const CONTENT_WIDTH_DXA = PAGE_WIDTH_DXA - MARGIN_LEFT_DXA - MARGIN_RIGHT_DXA; // 9072
 
-const BEN_B_NAME =
-  "CÔNG TY CỔ PHẦN KIỂM ĐỊNH KỸ THUẬT, AN TOÀN VÀ TƯ VẤN XÂY DỰNG – INCOSAF – CHI NHÁNH ĐÀ NẴNG";
-const BEN_B_REPRESENTATIVE = "Ông Dương Kim Ái";
+const BEN_B_NAME = INCERT_COMPANY.name;
+const BEN_B_REPRESENTATIVE = "Ông Thái Tân";
 const BEN_B_TITLE = "Giám đốc";
-const BEN_B_ADDRESS = "20 Nguyễn Lộ Trạch, Phường Hòa Cường, TP. Đà Nẵng";
+const BEN_B_ADDRESS = INCERT_COMPANY.address;
 
 function run(
   text: string,
