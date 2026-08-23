@@ -1,4 +1,5 @@
 import { formatCurrency } from "@/lib/utils/currency";
+import { LABOR_CONTRACT_TYPE_LABELS } from "@/lib/employees/labor-contract-form-schema";
 
 export const TABLE_LABELS: Record<string, string> = {
   equipment: "Thiết bị",
@@ -6,6 +7,8 @@ export const TABLE_LABELS: Record<string, string> = {
   inspection_history: "Lịch sử kiểm định",
   contracts: "Hợp đồng",
   contract_payments: "Thanh toán hợp đồng",
+  profiles: "Nhân viên",
+  employee_labor_contracts: "Hợp đồng lao động",
 };
 
 export function getTableLabel(tableName: string): string {
@@ -35,11 +38,40 @@ function formatCurrencyValue(value: unknown): string | null {
 export function getRecordInfo(
   tableName: string,
   data: Record<string, unknown> | null
-): { label: string; equipmentId?: string; contractId?: string } {
+): { label: string; equipmentId?: string; contractId?: string; profileId?: string } {
   if (!data) return { label: "—" };
 
   if (tableName === "equipment" || tableName === "customers" || tableName === "contracts") {
     return { label: typeof data.code === "string" ? data.code : "—" };
+  }
+
+  // PROMPT-65: profiles không có cột "code" -- ghép full_name (fallback
+  // email) làm nhãn. id của chính profiles = record_id nên có thể link phụ
+  // "Xem nhân viên" ngay từ chính bản ghi này.
+  if (tableName === "profiles") {
+    const fullName = typeof data.full_name === "string" && data.full_name ? data.full_name : null;
+    const email = typeof data.email === "string" ? data.email : null;
+    const profileId = typeof data.id === "string" ? data.id : undefined;
+    return { label: fullName ?? email ?? "—", profileId };
+  }
+
+  // employee_labor_contracts không có cột định danh riêng -- ghép loại HĐ +
+  // ngày ký, kèm link phụ sang nhân viên liên quan (mirror equipmentId/
+  // contractId đã có cho inspection_history/contract_payments).
+  if (tableName === "employee_labor_contracts") {
+    const typeLabel =
+      typeof data.contract_type === "string" && data.contract_type in LABOR_CONTRACT_TYPE_LABELS
+        ? LABOR_CONTRACT_TYPE_LABELS[data.contract_type as keyof typeof LABOR_CONTRACT_TYPE_LABELS]
+        : null;
+    const signedDate = typeof data.signed_date === "string" ? data.signed_date : null;
+    const profileId = typeof data.profile_id === "string" ? data.profile_id : undefined;
+    return {
+      label:
+        typeLabel && signedDate
+          ? `${typeLabel} - ký ${formatDate(signedDate)}`
+          : (typeLabel ?? "—"),
+      profileId,
+    };
   }
 
   if (tableName === "inspection_history") {

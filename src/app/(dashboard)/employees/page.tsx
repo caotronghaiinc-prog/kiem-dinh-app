@@ -47,7 +47,7 @@ export default async function EmployeesPage(
 
   let query = supabase
     .from("profiles")
-    .select("id, full_name, email, role, phone, active")
+    .select("id, full_name, email, role, phone, active, job_title")
     .order("full_name", { ascending: true });
 
   if (roleFilter) {
@@ -58,8 +58,40 @@ export default async function EmployeesPage(
   }
 
   const { data, error } = await query;
-  const employees = (data ?? []) as EmployeeListItem[];
+  const baseEmployees = data ?? [];
   const hasFilters = Boolean(q) || Boolean(roleFilter);
+
+  // PROMPT-65: cột "HĐLĐ" -- hạn cảnh báo lấy từ hợp đồng có start_date MỚI
+  // NHẤT của mỗi người (quy ước tối giản, KHÔNG phải "hợp đồng đang hiệu
+  // lực"), null nếu chưa có hợp đồng nào HOẶC hợp đồng mới nhất là loại
+  // "Không xác định thời hạn" (end_date null) -- không bao giờ cảnh báo.
+  // Query TOÀN BỘ hợp đồng của các nhân viên đang hiện trên trang rồi tự
+  // rút gọn ở đây, không lọc end_date is not null TRƯỚC khi tìm bản mới
+  // nhất (nếu lọc trước sẽ có thể chọn nhầm hợp đồng cũ hơn khi hợp đồng
+  // mới nhất là loại vô thời hạn).
+  const latestEndDateByProfileId = new Map<string, string | null>();
+  if (baseEmployees.length > 0) {
+    const { data: laborContractsData } = await supabase
+      .from("employee_labor_contracts")
+      .select("profile_id, start_date, end_date")
+      .in(
+        "profile_id",
+        baseEmployees.map((e) => e.id)
+      )
+      .order("profile_id", { ascending: true })
+      .order("start_date", { ascending: false });
+
+    for (const row of laborContractsData ?? []) {
+      if (!latestEndDateByProfileId.has(row.profile_id)) {
+        latestEndDateByProfileId.set(row.profile_id, row.end_date);
+      }
+    }
+  }
+
+  const employees: EmployeeListItem[] = baseEmployees.map((e) => ({
+    ...e,
+    latest_labor_contract_end_date: latestEndDateByProfileId.get(e.id) ?? null,
+  }));
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-6 p-8">
@@ -93,8 +125,10 @@ export default async function EmployeesPage(
                   <TableHead>Họ tên</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Vai trò</TableHead>
+                  <TableHead>Chức vụ</TableHead>
                   <TableHead>SĐT</TableHead>
                   <TableHead>Trạng thái</TableHead>
+                  <TableHead>HĐLĐ</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

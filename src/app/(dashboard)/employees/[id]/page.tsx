@@ -6,7 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ROLE_LABELS } from "@/lib/auth/role-labels";
 import { CertificatesSection } from "./certificates-section";
-import type { CertificateRow, EmployeeDetail } from "../types";
+import { LaborContractsSection } from "./labor-contracts-section";
+import { EmployeeInfoDialog } from "./employee-info-dialog";
+import type { CertificateRow, EmployeeDetail, LaborContractRow } from "../types";
+
+function formatDate(value: string | null): string | null {
+  if (!value) return null;
+  return new Date(value).toLocaleDateString("vi-VN");
+}
 
 function InfoField({ label, value }: { label: string; value: string | null }) {
   return (
@@ -32,20 +39,30 @@ export default async function EmployeeDetailPage(
 
   const supabase = await createClient();
 
-  const [{ data: employeeData }, { data: certificatesData }] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select("id, full_name, email, role, phone, active")
-      .eq("id", params.id)
-      .maybeSingle(),
-    supabase
-      .from("inspector_certificates")
-      .select(
-        "id, certificate_type, certificate_number, issued_by, issued_date, expiry_date, equipment_types, scope_note, file_path, note"
-      )
-      .eq("profile_id", params.id)
-      .order("expiry_date", { ascending: true }),
-  ]);
+  const [{ data: employeeData }, { data: certificatesData }, { data: laborContractsData }] =
+    await Promise.all([
+      supabase
+        .from("profiles")
+        .select(
+          "id, full_name, email, role, phone, active, job_title, date_of_birth, cccd_number, start_date, permanent_address"
+        )
+        .eq("id", params.id)
+        .maybeSingle(),
+      supabase
+        .from("inspector_certificates")
+        .select(
+          "id, certificate_type, certificate_number, issued_by, issued_date, expiry_date, equipment_types, scope_note, file_path, note"
+        )
+        .eq("profile_id", params.id)
+        .order("expiry_date", { ascending: true }),
+      // PROMPT-65: mới nhất trước -- KHÔNG có khái niệm "hợp đồng hiện hành"
+      // tự động, admin tự nhận biết qua ngày tháng (quyết định giữ đơn giản).
+      supabase
+        .from("employee_labor_contracts")
+        .select("id, contract_type, contract_no, signed_date, start_date, end_date, file_path, note")
+        .eq("profile_id", params.id)
+        .order("signed_date", { ascending: false }),
+    ]);
 
   if (!employeeData) {
     return (
@@ -61,6 +78,7 @@ export default async function EmployeeDetailPage(
 
   const employee = employeeData as EmployeeDetail;
   const certificates = (certificatesData ?? []) as unknown as CertificateRow[];
+  const laborContracts = (laborContractsData ?? []) as unknown as LaborContractRow[];
 
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-8 p-8">
@@ -87,6 +105,7 @@ export default async function EmployeeDetailPage(
             )}
           </div>
         </div>
+        <EmployeeInfoDialog employee={employee} />
       </div>
 
       <section className="flex flex-col gap-4">
@@ -96,10 +115,17 @@ export default async function EmployeeDetailPage(
           <InfoField label="Email" value={employee.email} />
           <InfoField label="SĐT" value={employee.phone} />
           <InfoField label="Vai trò" value={ROLE_LABELS[employee.role] ?? employee.role} />
+          <InfoField label="Chức vụ" value={employee.job_title} />
+          <InfoField label="Ngày sinh" value={formatDate(employee.date_of_birth)} />
+          <InfoField label="Số CCCD" value={employee.cccd_number} />
+          <InfoField label="Ngày vào làm" value={formatDate(employee.start_date)} />
+          <InfoField label="Địa chỉ thường trú" value={employee.permanent_address} />
         </div>
       </section>
 
       <CertificatesSection profileId={employee.id} certificates={certificates} canEdit />
+
+      <LaborContractsSection profileId={employee.id} contracts={laborContracts} canEdit />
     </div>
   );
 }

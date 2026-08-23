@@ -64,3 +64,16 @@ export interface CertificateAlertRow {
   expiry_date: string;
   profile: { full_name: string | null } | null;
 }
+
+// PROMPT-65: Widget "Hợp đồng lao động sắp hết hạn -- cần ký lại". Mỗi dòng
+// đại diện cho hợp đồng có start_date MỚI NHẤT của 1 nhân viên (quy ước tối
+// giản, KHÔNG phải khái niệm "hợp đồng đang hiệu lực") -- page.tsx đã lọc
+// sẵn end_date null (loại "Không xác định thời hạn") ra khỏi tập này trước
+// khi truyền xuống, nên expiry_date ở đây luôn có giá trị.
+export interface LaborContractAlertRow {
+  id: string;
+  profile_id: string;
+  contract_type: "thu_viec" | "xac_dinh_thoi_han" | "khong_xac_dinh_thoi_han";
+  expiry_date: string;
+  profile: { full_name: string | null } | null;
+}

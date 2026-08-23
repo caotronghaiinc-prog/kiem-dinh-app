@@ -36,6 +36,11 @@ export function AuditLogCard({ log }: { log: AuditLogRowType }) {
               Xem hợp đồng
             </Link>
           )}
+          {record.profileId && (
+            <Link href={`/employees/${record.profileId}`} className="text-primary hover:underline">
+              Xem nhân viên
+            </Link>
+          )}
         </div>
         <AuditLogDetailDialog action={log.action} oldData={log.old_data} newData={log.new_data} />
       </CardContent>

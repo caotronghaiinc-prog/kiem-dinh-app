@@ -14,7 +14,7 @@ const SIGNED_URL_TTL_SECONDS = 60 * 10;
  * Tạo signed URL ngay lúc bấm, hết hạn sau 10 phút, mở tab mới để trình
  * duyệt tự hiển thị. Mirror nguyên tools/[id]/attachment-link.tsx.
  */
-export function AttachmentLink({ path }: { path: string }) {
+export function AttachmentLink({ path, label = "Xem file" }: { path: string; label?: string }) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
 
@@ -48,7 +48,7 @@ export function AttachmentLink({ path }: { path: string }) {
       disabled={loading}
     >
       {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
-      Xem file
+      {label}
     </Button>
   );
 }

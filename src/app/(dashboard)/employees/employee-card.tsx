@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ROLE_LABELS } from "@/lib/auth/role-labels";
+import { ExpiryIndicator } from "@/components/equipment/expiry-indicator";
 import type { EmployeeListItem } from "./types";
 
 export function EmployeeCard({ employee }: { employee: EmployeeListItem }) {
@@ -26,7 +27,16 @@ export function EmployeeCard({ employee }: { employee: EmployeeListItem }) {
           </div>
           <div className="flex flex-col gap-1 text-sm text-muted-foreground">
             <span>Vai trò: {ROLE_LABELS[employee.role] ?? employee.role}</span>
+            <span>Chức vụ: {employee.job_title || "—"}</span>
             <span>SĐT: {employee.phone || "—"}</span>
+            <span className="flex items-center gap-1">
+              HĐLĐ:{" "}
+              {employee.latest_labor_contract_end_date ? (
+                <ExpiryIndicator expiryDate={employee.latest_labor_contract_end_date} />
+              ) : (
+                "—"
+              )}
+            </span>
           </div>
         </CardContent>
       </Card>

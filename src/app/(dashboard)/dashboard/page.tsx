@@ -9,11 +9,13 @@ import { CalibrationAlertWidget } from "./calibration-alert-widget";
 import { EditRequestAlertWidget } from "./edit-request-alert-widget";
 import { ContractDebtAlertWidget } from "./contract-debt-alert-widget";
 import { CertificateAlertWidget } from "./certificate-alert-widget";
+import { LaborContractAlertWidget } from "./labor-contract-alert-widget";
 import type {
   CertificateAlertRow,
   ContractDebtAlertRow,
   EditRequestAlertRow,
   EquipmentAlertRow,
+  LaborContractAlertRow,
   ToolAlertRow,
 } from "./types";
 
@@ -50,6 +52,7 @@ export default async function DashboardPage() {
     { data: editRequestsData, count: editRequestsCount },
     { data: contractsData },
     { data: certificatesData },
+    { data: laborContractsData },
   ] = await Promise.all([
     // Chỉ 4 cột cần thiết + lọc sẵn status != 'inactive' -- widget 1 và 4
     // dùng chung 1 lần fetch này, tự tính đỏ/vàng/xanh bằng
@@ -112,13 +115,36 @@ export default async function DashboardPage() {
       .neq("status", "huy"),
     // PROMPT-63: chỉ admin cần thấy -- không query cho role khác (mirror
     // cách query inspection_edit_requests đã làm có điều kiện).
+    //
+    // PROMPT-65 (mentor, phát hiện lúc test): "profiles" PHẢI chỉ rõ tên FK
+    // (!inspector_certificates_profile_id_fkey) -- bảng này có 2 FK khác
+    // nhau trỏ tới profiles (profile_id VÀ created_by), PostgREST không tự
+    // suy ra được nên trả lỗi PGRST201 "more than one relationship was
+    // found", khiến certificatesData luôn null và widget luôn hiện rỗng dù
+    // có dữ liệu thật -- lỗi có sẵn từ PROMPT-63, tiện sửa cùng lúc vì cùng
+    // gốc với lỗi ở employee_labor_contracts bên dưới.
     isAdmin
       ? supabase
           .from("inspector_certificates")
           .select(
-            "id, profile_id, certificate_type, certificate_number, expiry_date, profile:profiles(full_name)"
+            "id, profile_id, certificate_type, certificate_number, expiry_date, profile:profiles!inspector_certificates_profile_id_fkey(full_name)"
           )
           .order("expiry_date", { ascending: true })
+      : Promise.resolve({ data: null }),
+    // PROMPT-65: chỉ admin cần thấy -- lấy TOÀN BỘ hợp đồng lao động (không
+    // lọc end_date is not null trước) để tự rút gọn "hợp đồng mới nhất theo
+    // start_date" đúng cho từng người ở JS bên dưới, rồi mới loại người có
+    // hợp đồng mới nhất là loại vô thời hạn (nếu lọc end_date trước khi tìm
+    // bản mới nhất sẽ có thể chọn nhầm 1 hợp đồng cũ hơn). Cùng lý do FK mơ
+    // hồ như trên -- chỉ rõ !employee_labor_contracts_profile_id_fkey.
+    isAdmin
+      ? supabase
+          .from("employee_labor_contracts")
+          .select(
+            "id, profile_id, contract_type, start_date, end_date, profile:profiles!employee_labor_contracts_profile_id_fkey(full_name)"
+          )
+          .order("profile_id", { ascending: true })
+          .order("start_date", { ascending: false })
       : Promise.resolve({ data: null }),
   ]);
 
@@ -164,6 +190,32 @@ export default async function DashboardPage() {
     .filter((r): r is EditRequestAlertRow => r !== null);
 
   const certificates = (certificatesData ?? []) as unknown as CertificateAlertRow[];
+
+  // Đã sort profile_id, start_date desc -- dòng đầu tiên gặp của mỗi
+  // profile_id chính là hợp đồng mới nhất của người đó. Chỉ giữ lại nếu
+  // end_date khác null (loại "Không xác định thời hạn" không bao giờ cảnh
+  // báo, loại hẳn khỏi widget -- không tính vào đếm màu).
+  const seenProfileIds = new Set<string>();
+  const laborContracts: LaborContractAlertRow[] = [];
+  for (const row of (laborContractsData ?? []) as unknown as Array<{
+    id: string;
+    profile_id: string;
+    contract_type: LaborContractAlertRow["contract_type"];
+    start_date: string;
+    end_date: string | null;
+    profile: { full_name: string | null } | null;
+  }>) {
+    if (seenProfileIds.has(row.profile_id)) continue;
+    seenProfileIds.add(row.profile_id);
+    if (!row.end_date) continue;
+    laborContracts.push({
+      id: row.id,
+      profile_id: row.profile_id,
+      contract_type: row.contract_type,
+      expiry_date: row.end_date,
+      profile: row.profile,
+    });
+  }
 
   const contractDebts: ContractDebtAlertRow[] = (contractsData ?? [])
     .map((c) => ({
@@ -211,6 +263,7 @@ export default async function DashboardPage() {
           <EditRequestAlertWidget requests={editRequests} totalCount={editRequestsCount ?? 0} />
         )}
         {isAdmin && <CertificateAlertWidget certificates={certificates} />}
+        {isAdmin && <LaborContractAlertWidget contracts={laborContracts} />}
       </div>
     </div>
   );
