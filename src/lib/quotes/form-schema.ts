@@ -13,6 +13,7 @@ export const quoteFormSchema = z.object({
   customer_phone_snapshot: z.string().trim().optional(),
   customer_tax_code_snapshot: z.string().trim().optional(),
   title: z.string().trim().optional(),
+  site_location: z.string().trim().optional(),
   valid_until: z.string().trim().optional(),
   status: z.enum(QUOTE_STATUS_VALUES),
   note: z.string().trim().optional(),

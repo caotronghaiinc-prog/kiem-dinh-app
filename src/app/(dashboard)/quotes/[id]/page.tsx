@@ -42,7 +42,7 @@ export default async function QuoteDetailPage(
     supabase
       .from("quotes")
       .select(
-        "id, code, customer_id, customer_name_snapshot, customer_address_snapshot, customer_contact_snapshot, customer_phone_snapshot, customer_tax_code_snapshot, title, valid_until, status, total_value, note, quote_file_path, converted_contract_id"
+        "id, code, customer_id, customer_name_snapshot, customer_address_snapshot, customer_contact_snapshot, customer_phone_snapshot, customer_tax_code_snapshot, title, site_location, valid_until, status, total_value, note, quote_file_path, converted_contract_id"
       )
       .eq("id", params.id)
       .maybeSingle(),
@@ -118,6 +118,7 @@ export default async function QuoteDetailPage(
               title: quote.title,
               valid_until: quote.valid_until,
               note: quote.note,
+              site_location: quote.site_location,
             }}
             items={items}
           />
@@ -141,6 +142,7 @@ export default async function QuoteDetailPage(
         <h2 className="text-lg font-semibold">Thông tin chung</h2>
         <div className="grid gap-4 sm:grid-cols-2">
           <InfoField label="Tên/Nội dung báo giá" value={quote.title} />
+          <InfoField label="Địa điểm thực hiện" value={quote.site_location} />
           <InfoField label="Thời hạn báo giá" value={formatDate(quote.valid_until)} />
           <InfoField label="Địa chỉ khách hàng" value={quote.customer_address_snapshot} />
           <InfoField label="Người liên hệ" value={quote.customer_contact_snapshot} />

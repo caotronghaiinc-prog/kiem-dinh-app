@@ -107,29 +107,39 @@ export async function buildContractEquipmentListDocx(
       })
   );
 
-  const totalRow = new TableRow({
-    children: [
-      new TableCell({
-        columnSpan: 8,
-        borders: CELL_BORDERS,
-        children: [
-          new Paragraph({
-            alignment: AlignmentType.RIGHT,
-            children: [new TextRun({ text: "Tổng cộng", bold: true })],
-          }),
-        ],
-      }),
-      new TableCell({
-        borders: CELL_BORDERS,
-        children: [
-          new Paragraph({
-            alignment: AlignmentType.RIGHT,
-            children: [new TextRun({ text: total.toLocaleString("vi-VN"), bold: true })],
-          }),
-        ],
-      }),
-    ],
-  });
+  // PROMPT-62: contract_equipment.unit_price giờ là giá CHƯA VAT (migration
+  // 0034) -- 1 dòng "Tổng cộng" gộp sẵn cũ sẽ THIẾU 8% so với số khách thực
+  // trả nếu để nguyên. Đổi thành 3 dòng, mirror ĐÚNG cấu trúc bảng báo giá
+  // (quote-export.ts): Cộng chưa VAT / Thuế VAT (8%) / TỔNG CỘNG, tính trực
+  // tiếp từ equipment (không lấy contract.total_value).
+  const vat = Math.round(total * 0.08);
+  const grandTotal = total + vat;
+
+  function totalRow(label: string, value: number, emphasize?: boolean): TableRow {
+    return new TableRow({
+      children: [
+        new TableCell({
+          columnSpan: 8,
+          borders: CELL_BORDERS,
+          children: [
+            new Paragraph({
+              alignment: AlignmentType.RIGHT,
+              children: [new TextRun({ text: label, bold: true })],
+            }),
+          ],
+        }),
+        new TableCell({
+          borders: CELL_BORDERS,
+          children: [
+            new Paragraph({
+              alignment: AlignmentType.RIGHT,
+              children: [new TextRun({ text: value.toLocaleString("vi-VN"), bold: emphasize })],
+            }),
+          ],
+        }),
+      ],
+    });
+  }
 
   const doc = new Document({
     sections: [
@@ -167,7 +177,13 @@ export async function buildContractEquipmentListDocx(
           }),
           new Table({
             width: { size: 100, type: WidthType.PERCENTAGE },
-            rows: [headerRow, ...bodyRows, totalRow],
+            rows: [
+              headerRow,
+              ...bodyRows,
+              totalRow("Cộng chưa VAT:", total),
+              totalRow("Thuế VAT (8%):", vat),
+              totalRow("TỔNG CỘNG:", grandTotal, true),
+            ],
           }),
         ],
       },

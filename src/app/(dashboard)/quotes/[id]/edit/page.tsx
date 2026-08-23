@@ -17,7 +17,7 @@ export default async function EditQuotePage(
     supabase
       .from("quotes")
       .select(
-        "id, code, customer_id, customer_name_snapshot, customer_address_snapshot, customer_contact_snapshot, customer_phone_snapshot, customer_tax_code_snapshot, title, valid_until, status, note, quote_file_path"
+        "id, code, customer_id, customer_name_snapshot, customer_address_snapshot, customer_contact_snapshot, customer_phone_snapshot, customer_tax_code_snapshot, title, site_location, valid_until, status, note, quote_file_path"
       )
       .eq("id", params.id)
       .maybeSingle(),

@@ -17,7 +17,7 @@ const SIGNED_URL_TTL_SECONDS = 60 * 10;
  * contracts/[id]/) vì contract-form.tsx (dùng chung cho new/ và [id]/edit/)
  * cũng cần hiện file hiện có, không chỉ trang chi tiết.
  */
-export function AttachmentLink({ path }: { path: string }) {
+export function AttachmentLink({ path, label = "Xem file hợp đồng" }: { path: string; label?: string }) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
 
@@ -51,7 +51,7 @@ export function AttachmentLink({ path }: { path: string }) {
       disabled={loading}
     >
       {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
-      Xem file hợp đồng
+      {label}
     </Button>
   );
 }
