@@ -22,6 +22,7 @@ export interface QuoteRecord {
   customer_phone_snapshot: string | null;
   customer_tax_code_snapshot: string | null;
   title: string | null;
+  site_location: string | null;
   valid_until: string | null;
   status: QuoteStatus;
   note: string | null;

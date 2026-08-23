@@ -27,15 +27,31 @@ export interface ContractRecord {
   note: string | null;
 }
 
-/** Dùng cho trang chi tiết -- đủ field hiển thị + paid_total (cache, chỉ đọc). */
+export type AcceptanceResult = "dat" | "co_van_de";
+
+/**
+ * Dùng cho trang chi tiết -- đủ field hiển thị + paid_total (cache, chỉ
+ * đọc) + 8 cột thông tin nghiệm thu (PROMPT-61, migration 0033). address/
+ * contact_name của customer cần thêm để làm giá trị gợi ý mặc định ở dialog
+ * nghiệm thu và điền phần "ĐẠI DIỆN BÊN A" khi xuất biên bản.
+ */
 export interface ContractDetail extends ContractRecord {
   paid_total: number;
-  customer: { company_name: string } | null;
+  customer: { company_name: string; address: string | null; contact_name: string | null } | null;
+  acceptance_date: string | null;
+  acceptance_location: string | null;
+  acceptance_result: AcceptanceResult | null;
+  acceptance_note: string | null;
+  representative_a_name: string | null;
+  representative_a_title: string | null;
+  acceptance_copies_note: string | null;
+  acceptance_file_path: string | null;
 }
 
 export interface ContractEquipmentRow {
   id: string; // id dòng contract_equipment (dùng để "Gỡ"/"Sửa")
   equipment_id: string;
+  unit: string | null;
   unit_price: number;
   quantity: number;
   so_tem: string | null;

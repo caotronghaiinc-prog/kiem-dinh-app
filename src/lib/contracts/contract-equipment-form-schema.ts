@@ -3,6 +3,7 @@ import { z } from "zod";
 // unit_price/quantity: input hiển thị có phân cách nghìn (unit_price, xem
 // formatNumberInput) nhưng field.value luôn là chuỗi số nguyên thuần.
 export const contractEquipmentFormSchema = z.object({
+  unit: z.string().trim().optional(),
   unit_price: z
     .string()
     .trim()

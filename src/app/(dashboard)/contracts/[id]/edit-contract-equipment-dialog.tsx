@@ -46,6 +46,7 @@ export function EditContractEquipmentDialog({ row }: { row: ContractEquipmentRow
   const form = useForm<ContractEquipmentFormValues>({
     resolver: zodResolver(contractEquipmentFormSchema),
     defaultValues: {
+      unit: row.unit ?? "",
       unit_price: String(row.unit_price),
       quantity: String(row.quantity),
       so_tem: row.so_tem ?? "",
@@ -57,6 +58,7 @@ export function EditContractEquipmentDialog({ row }: { row: ContractEquipmentRow
     if (submitting) return;
     if (!next) {
       form.reset({
+        unit: row.unit ?? "",
         unit_price: String(row.unit_price),
         quantity: String(row.quantity),
         so_tem: row.so_tem ?? "",
@@ -73,6 +75,7 @@ export function EditContractEquipmentDialog({ row }: { row: ContractEquipmentRow
     const { error } = await supabase
       .from("contract_equipment")
       .update({
+        unit: values.unit || null,
         unit_price: Number(values.unit_price),
         quantity: Number(values.quantity),
         so_tem: values.so_tem || null,
@@ -116,6 +119,20 @@ export function EditContractEquipmentDialog({ row }: { row: ContractEquipmentRow
             </p>
 
             <div className="grid gap-4 sm:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="unit"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Đơn vị tính</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Cái" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
               <FormField
                 control={form.control}
                 name="quantity"

@@ -64,6 +64,7 @@ export function QuoteForm({ mode, quote, customerOptions }: QuoteFormProps) {
       customer_phone_snapshot: quote?.customer_phone_snapshot ?? "",
       customer_tax_code_snapshot: quote?.customer_tax_code_snapshot ?? "",
       title: quote?.title ?? "",
+      site_location: quote?.site_location ?? "",
       valid_until: quote?.valid_until ?? "",
       status: (quote?.status as QuoteFormValues["status"]) ?? "nhap",
       note: quote?.note ?? "",
@@ -105,6 +106,7 @@ export function QuoteForm({ mode, quote, customerOptions }: QuoteFormProps) {
       customer_phone_snapshot: values.customer_phone_snapshot || null,
       customer_tax_code_snapshot: values.customer_tax_code_snapshot || null,
       title: values.title || null,
+      site_location: values.site_location || null,
       valid_until: values.valid_until || null,
       status: values.status,
       note: values.note || null,
@@ -292,6 +294,20 @@ export function QuoteForm({ mode, quote, customerOptions }: QuoteFormProps) {
                 <FormLabel>Tên/Nội dung báo giá</FormLabel>
                 <FormControl>
                   <Input placeholder="Báo giá dịch vụ kiểm định..." {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="site_location"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Địa điểm thực hiện (nếu có)</FormLabel>
+                <FormControl>
+                  <Input placeholder="Tên nhà máy/công trình" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>

@@ -9,6 +9,7 @@ import { getContractStatusConfig } from "@/lib/contracts/status";
 import { AttachmentLink } from "../attachment-link";
 import { ContractEquipmentSection } from "./contract-equipment-section";
 import { ContractPaymentsSection } from "./contract-payments-section";
+import { ContractAcceptanceSection } from "./contract-acceptance-section";
 import type { ContractDetail, ContractEquipmentRow, ContractPaymentRow } from "../types";
 
 function formatDate(value: string | null): string | null {
@@ -42,14 +43,14 @@ export default async function ContractDetailPage(
       supabase
         .from("contracts")
         .select(
-          "id, code, contract_no, customer_id, title, signed_date, total_value, paid_total, status, contract_file_path, note, customer:customers(company_name)"
+          "id, code, contract_no, customer_id, title, signed_date, total_value, paid_total, status, contract_file_path, note, acceptance_date, acceptance_location, acceptance_result, acceptance_note, representative_a_name, representative_a_title, acceptance_copies_note, acceptance_file_path, customer:customers(company_name, address, contact_name)"
         )
         .eq("id", params.id)
         .maybeSingle(),
       supabase
         .from("contract_equipment")
         .select(
-          "id, equipment_id, unit_price, quantity, so_tem, ngay_kiem_dinh, equipment:equipment(code, name, type, serial_number, spec_values)"
+          "id, equipment_id, unit, unit_price, quantity, so_tem, ngay_kiem_dinh, equipment:equipment(code, name, type, serial_number, spec_values)"
         )
         .eq("contract_id", params.id)
         .order("created_at", { ascending: true }),
@@ -154,6 +155,8 @@ export default async function ContractDetailPage(
         paidTotal={contract.paid_total}
         canEdit={canEdit}
       />
+
+      <ContractAcceptanceSection contract={contract} equipment={equipment} canEdit={canEdit} />
     </div>
   );
 }
