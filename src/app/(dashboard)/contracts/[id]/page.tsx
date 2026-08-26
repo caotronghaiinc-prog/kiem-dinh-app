@@ -10,7 +10,7 @@ import { AttachmentLink } from "../attachment-link";
 import { ContractEquipmentSection } from "./contract-equipment-section";
 import { ContractPaymentsSection } from "./contract-payments-section";
 import { ContractAcceptanceSection } from "./contract-acceptance-section";
-import type { ContractDetail, ContractEquipmentRow, ContractPaymentRow } from "../types";
+import type { ContractDetail, ContractEquipmentRow, ContractPaymentRow, ContractPerson } from "../types";
 
 function formatDate(value: string | null): string | null {
   if (!value) return null;
@@ -38,29 +38,42 @@ export default async function ContractDetailPage(
   const params = await props.params;
   const supabase = await createClient();
 
-  const [{ data: contractData }, { data: equipmentData }, { data: paymentsData }, profile] =
-    await Promise.all([
-      supabase
-        .from("contracts")
-        .select(
-          "id, code, contract_no, customer_id, title, signed_date, total_value, paid_total, status, contract_file_path, note, acceptance_date, acceptance_location, acceptance_result, acceptance_note, representative_a_name, representative_a_title, acceptance_copies_note, acceptance_file_path, customer:customers(company_name, address, contact_name)"
-        )
-        .eq("id", params.id)
-        .maybeSingle(),
-      supabase
-        .from("contract_equipment")
-        .select(
-          "id, equipment_id, unit, unit_price, quantity, so_tem, ngay_kiem_dinh, equipment:equipment(code, name, type, serial_number, spec_values)"
-        )
-        .eq("contract_id", params.id)
-        .order("created_at", { ascending: true }),
-      supabase
-        .from("contract_payments")
-        .select("id, amount, paid_date, method, note, created_by:profiles(full_name)")
-        .eq("contract_id", params.id)
-        .order("paid_date", { ascending: false }),
-      getCurrentUserProfile(),
-    ]);
+  const [
+    { data: contractData },
+    { data: equipmentData },
+    { data: paymentsData },
+    profile,
+    { data: responsiblesData },
+    { data: inspectorsData },
+  ] = await Promise.all([
+    supabase
+      .from("contracts")
+      .select(
+        "id, code, contract_no, customer_id, title, signed_date, total_value, paid_total, status, contract_file_path, note, acceptance_date, acceptance_location, acceptance_result, acceptance_note, representative_a_name, representative_a_title, acceptance_copies_note, acceptance_file_path, site_location, execution_time_note, contract_type_note, using_unit_name, using_unit_address, work_request_document_no, customer:customers(company_name, address, contact_name, tax_code, phone)"
+      )
+      .eq("id", params.id)
+      .maybeSingle(),
+    supabase
+      .from("contract_equipment")
+      .select(
+        "id, equipment_id, unit, unit_price, quantity, so_tem, ngay_kiem_dinh, equipment:equipment(code, name, type, serial_number, spec_values)"
+      )
+      .eq("contract_id", params.id)
+      .order("created_at", { ascending: true }),
+    supabase
+      .from("contract_payments")
+      .select("id, amount, paid_date, method, note, created_by:profiles(full_name)")
+      .eq("contract_id", params.id)
+      .order("paid_date", { ascending: false }),
+    getCurrentUserProfile(),
+    supabase
+      .from("contract_technical_responsibles")
+      .select("profile_id, is_requester")
+      .eq("contract_id", params.id),
+    // PROMPT-66: RPC hẹp (KHÔNG embed profiles), dùng để tra tên hiển thị
+    // của technicalResponsibles/requester -- xem migration 0037.
+    supabase.rpc("list_inspectors_for_assignment"),
+  ]);
 
   if (!contractData) {
     return (
@@ -74,10 +87,33 @@ export default async function ContractDetailPage(
     );
   }
 
-  const contract = contractData as unknown as ContractDetail;
   const equipment = (equipmentData ?? []) as unknown as ContractEquipmentRow[];
   const payments = (paymentsData ?? []) as unknown as ContractPaymentRow[];
   const canEdit = profile?.role === "admin" || profile?.role === "inspector";
+
+  // PROMPT-66: khớp tên bằng tay (KHÔNG qua PostgREST embed, tránh bẫy
+  // PGRST201) -- contract_technical_responsibles chỉ lưu profile_id thô,
+  // full_name tra ngược qua RPC list_inspectors_for_assignment(). Nếu 1
+  // profile_id không có trong directory (vd tài khoản đã active=false sau
+  // khi được gán) thì full_name ra null, hiện "—"/placeholder "……", không
+  // throw lỗi -- trường hợp hiếm, chấp nhận được cho quy mô đội hiện tại.
+  const inspectors = (inspectorsData ?? []) as unknown as ContractPerson[];
+  const directory = new Map(inspectors.map((p) => [p.id, p.full_name]));
+  const responsibleRows = responsiblesData ?? [];
+  const technicalResponsibles: ContractPerson[] = responsibleRows.map((r) => ({
+    id: r.profile_id,
+    full_name: directory.get(r.profile_id) ?? null,
+  }));
+  const requesterRow = responsibleRows.find((r) => r.is_requester);
+  const requester: ContractPerson | null = requesterRow
+    ? { id: requesterRow.profile_id, full_name: directory.get(requesterRow.profile_id) ?? null }
+    : null;
+
+  const contract = {
+    ...(contractData as unknown as ContractDetail),
+    technicalResponsibles,
+    requester,
+  };
   const statusConfig = getContractStatusConfig(contract.status);
   const debt = contract.total_value - contract.paid_total;
 
@@ -139,14 +175,7 @@ export default async function ContractDetailPage(
         </div>
       </section>
 
-      <ContractEquipmentSection
-        contractId={contract.id}
-        contractCode={contract.code}
-        contractNo={contract.contract_no}
-        customerName={contract.customer?.company_name ?? null}
-        equipment={equipment}
-        canEdit={canEdit}
-      />
+      <ContractEquipmentSection contract={contract} equipment={equipment} canEdit={canEdit} />
 
       <ContractPaymentsSection
         contractId={contract.id}

@@ -34,12 +34,16 @@ import {
 import { contractFormSchema, type ContractFormValues } from "@/lib/contracts/form-schema";
 import { CONTRACT_STATUS_OPTIONS } from "@/lib/contracts/status";
 import { AttachmentLink } from "./attachment-link";
-import type { ContractRecord, CustomerOption } from "./types";
+import type { ContractPerson, ContractRecord, CustomerOption } from "./types";
 
 interface ContractFormProps {
   mode: "create" | "edit";
   contract?: ContractRecord;
   customerOptions: CustomerOption[];
+  /** PROMPT-66: danh sách admin/inspector active, dùng cho checkbox "Kiểm định viên tham gia". */
+  inspectorOptions: ContractPerson[];
+  /** PROMPT-66: tổ kiểm định viên đã gán trước đó (mode="edit"), để prefill checkbox + người đề nghị. */
+  initialTechnicalResponsibles?: { profile_id: string; is_requester: boolean }[];
   /** PROMPT-60 mục 7: "Tạo hợp đồng từ báo giá" -- chỉ áp dụng mode="create". */
   fromQuoteId?: string;
   prefill?: { customer_id: string; title: string | null; note: string | null };
@@ -55,6 +59,8 @@ export function ContractForm({
   mode,
   contract,
   customerOptions,
+  inspectorOptions,
+  initialTechnicalResponsibles,
   fromQuoteId,
   prefill,
 }: ContractFormProps) {
@@ -63,6 +69,18 @@ export function ContractForm({
   const [submitting, setSubmitting] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
+
+  // PROMPT-66: "Kiểm định viên tham gia"/"Người đề nghị" là quan hệ nhiều-
+  // dòng ở bảng nối contract_technical_responsibles, không phải cột của
+  // contracts -- 2 state riêng ngoài react-hook-form (mirror file/fileError
+  // đã có sẵn trong file này).
+  const [technicalResponsibleIds, setTechnicalResponsibleIds] = useState<string[]>(
+    initialTechnicalResponsibles?.map((r) => r.profile_id) ?? []
+  );
+  const [requesterId, setRequesterId] = useState<string>(
+    initialTechnicalResponsibles?.find((r) => r.is_requester)?.profile_id ?? ""
+  );
+  const [assignmentError, setAssignmentError] = useState<string | null>(null);
 
   const form = useForm<ContractFormValues>({
     resolver: zodResolver(contractFormSchema),
@@ -73,8 +91,27 @@ export function ContractForm({
       signed_date: contract?.signed_date ?? "",
       status: (contract?.status as ContractFormValues["status"]) ?? "dang_thuc_hien",
       note: contract?.note ?? prefill?.note ?? "",
+      site_location: contract?.site_location ?? "",
+      execution_time_note: contract?.execution_time_note ?? "",
+      contract_type_note: contract?.contract_type_note ?? "",
+      using_unit_name: contract?.using_unit_name ?? "",
+      using_unit_address: contract?.using_unit_address ?? "",
+      work_request_document_no: contract?.work_request_document_no ?? "",
     },
   });
+
+  // Bỏ tick 1 người đang là "Người đề nghị" -- tự reset lựa chọn người đề
+  // nghị, không để lại tham chiếu treo tới người đã bỏ chọn (đúng quyết
+  // định mentor đã chốt).
+  function toggleResponsible(id: string) {
+    setTechnicalResponsibleIds((current) => {
+      const next = current.includes(id) ? current.filter((r) => r !== id) : [...current, id];
+      if (!next.includes(requesterId)) {
+        setRequesterId("");
+      }
+      return next;
+    });
+  }
 
   function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
     const selected = e.target.files?.[0] ?? null;
@@ -110,7 +147,54 @@ export function ContractForm({
     return path;
   }
 
+  // Đồng bộ tổ kiểm định viên tham gia -- xóa hết rồi chèn lại (đơn giản,
+  // chấp nhận không transaction, mirror mức rủi ro đã có sẵn ở bước insert-
+  // rồi-upload-file trong file này). Không throw nếu lỗi -- hợp đồng chính
+  // đã lưu thành công, chỉ toast riêng.
+  async function syncTechnicalResponsibles(contractId: string) {
+    const supabase = createClient();
+    const { error: deleteError } = await supabase
+      .from("contract_technical_responsibles")
+      .delete()
+      .eq("contract_id", contractId);
+
+    if (deleteError) {
+      toast({
+        variant: "destructive",
+        title: "Lưu tổ kiểm định viên tham gia thất bại",
+        description: logAndGetSafeMessage(deleteError, "Có lỗi xảy ra, vui lòng thử sửa lại."),
+      });
+      return;
+    }
+
+    if (technicalResponsibleIds.length === 0) return;
+
+    const { error: insertError } = await supabase.from("contract_technical_responsibles").insert(
+      technicalResponsibleIds.map((profile_id) => ({
+        contract_id: contractId,
+        profile_id,
+        is_requester: profile_id === requesterId,
+      }))
+    );
+
+    if (insertError) {
+      toast({
+        variant: "destructive",
+        title: "Lưu tổ kiểm định viên tham gia thất bại",
+        description: logAndGetSafeMessage(insertError, "Có lỗi xảy ra, vui lòng thử sửa lại."),
+      });
+    }
+  }
+
   async function onSubmit(values: ContractFormValues) {
+    setAssignmentError(null);
+    if (technicalResponsibleIds.length > 0 && !requesterId) {
+      setAssignmentError(
+        "Vui lòng chọn \"Người đề nghị (đứng tên ký)\" trong số kiểm định viên đã tick."
+      );
+      return;
+    }
+
     setSubmitting(true);
     const supabase = createClient();
 
@@ -121,6 +205,12 @@ export function ContractForm({
       signed_date: values.signed_date || null,
       status: values.status,
       note: values.note || null,
+      site_location: values.site_location || null,
+      execution_time_note: values.execution_time_note || null,
+      contract_type_note: values.contract_type_note || null,
+      using_unit_name: values.using_unit_name || null,
+      using_unit_address: values.using_unit_address || null,
+      work_request_document_no: values.work_request_document_no || null,
     };
 
     try {
@@ -146,6 +236,8 @@ export function ContractForm({
             .eq("id", inserted.id);
           if (updateFileError) throw updateFileError;
         }
+
+        await syncTechnicalResponsibles(inserted.id);
 
         // PROMPT-60 mục 7: "Tạo hợp đồng từ báo giá" -- copy CÁC quote_items
         // CÓ equipment_id sang contract_equipment (bỏ qua item không có
@@ -208,6 +300,8 @@ export function ContractForm({
         .eq("id", contract!.id);
 
       if (updateError) throw updateError;
+
+      await syncTechnicalResponsibles(contract!.id);
 
       toast({ title: "Đã cập nhật hợp đồng" });
       router.push(`/contracts/${contract!.id}`);
@@ -336,6 +430,151 @@ export function ContractForm({
               </FormItem>
             )}
           />
+        </div>
+
+        <div className="flex flex-col gap-4 rounded-md border p-4">
+          <div>
+            <h3 className="text-sm font-semibold">Thông tin đề nghị thực hiện công việc</h3>
+            <p className="text-xs text-muted-foreground">
+              Dùng khi xuất Giấy đề nghị thực hiện công việc — có thể để trống nếu chưa cần.
+            </p>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="work_request_document_no"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Số văn bản</FormLabel>
+                  <FormControl>
+                    <Input placeholder="12/2026" {...field} />
+                  </FormControl>
+                  <p className="text-xs text-muted-foreground">
+                    Chỉ nhập số/năm — khi xuất, hệ thống tự ghép thành "Số: {"{giá trị}"}/KĐ".
+                  </p>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="site_location"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Địa điểm thực hiện</FormLabel>
+                  <FormControl>
+                    <Input placeholder="..." {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="execution_time_note"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Thời gian thực hiện</FormLabel>
+                  <FormControl>
+                    <Input placeholder="24/08/2026" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="contract_type_note"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Loại hình hợp đồng</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Giấy đề nghị theo Hợp đồng nguyên tắc" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="using_unit_name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Đơn vị/Dự án sử dụng</FormLabel>
+                  <FormControl>
+                    <Input placeholder="..." {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="using_unit_address"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Địa chỉ ĐV/DA sử dụng</FormLabel>
+                  <FormControl>
+                    <Input placeholder="..." {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium">Kiểm định viên tham gia</label>
+            {inspectorOptions.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Chưa có tài khoản kiểm định viên nào.</p>
+            ) : (
+              <div className="flex max-h-56 flex-col gap-1 overflow-y-auto rounded-md border p-3">
+                {inspectorOptions.map((person) => (
+                  <label key={person.id} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 rounded border-input"
+                      checked={technicalResponsibleIds.includes(person.id)}
+                      onChange={() => toggleResponsible(person.id)}
+                    />
+                    {person.full_name || "—"}
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {technicalResponsibleIds.length > 0 && (
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium">Người đề nghị (đứng tên ký)</label>
+              <div className="flex flex-col gap-1 rounded-md border p-3">
+                {inspectorOptions
+                  .filter((person) => technicalResponsibleIds.includes(person.id))
+                  .map((person) => (
+                    <label key={person.id} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="radio"
+                        name="requester"
+                        className="h-4 w-4"
+                        checked={requesterId === person.id}
+                        onChange={() => setRequesterId(person.id)}
+                      />
+                      {person.full_name || "—"}
+                    </label>
+                  ))}
+              </div>
+            </div>
+          )}
+
+          {assignmentError && (
+            <p className="text-[0.8rem] font-medium text-destructive">{assignmentError}</p>
+          )}
         </div>
 
         <FormField

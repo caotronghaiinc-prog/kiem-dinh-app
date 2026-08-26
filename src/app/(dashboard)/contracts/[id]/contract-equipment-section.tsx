@@ -22,8 +22,8 @@ import { formatCurrency } from "@/lib/utils/currency";
 import { getEquipmentModelCode } from "@/lib/equipment/spec-fields";
 import { AddEquipmentDialog } from "./add-equipment-dialog";
 import { EditContractEquipmentDialog } from "./edit-contract-equipment-dialog";
-import { ExportEquipmentListButton } from "./export-equipment-list-button";
-import type { ContractEquipmentRow } from "../types";
+import { ExportWorkRequestButton } from "./export-work-request-button";
+import type { ContractDetail, ContractEquipmentRow } from "../types";
 
 function formatDate(value: string | null): string {
   if (!value) return "—";
@@ -31,17 +31,11 @@ function formatDate(value: string | null): string {
 }
 
 export function ContractEquipmentSection({
-  contractId,
-  contractCode,
-  contractNo,
-  customerName,
+  contract,
   equipment,
   canEdit,
 }: {
-  contractId: string;
-  contractCode: string;
-  contractNo: string;
-  customerName: string | null;
+  contract: ContractDetail;
   equipment: ContractEquipmentRow[];
   canEdit: boolean;
 }) {
@@ -75,13 +69,10 @@ export function ContractEquipmentSection({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold">Thiết bị trong hợp đồng</h2>
         <div className="flex flex-wrap items-center gap-2">
-          <ExportEquipmentListButton
-            contract={{ code: contractCode, contract_no: contractNo, customer_name: customerName }}
-            equipment={equipment}
-          />
+          <ExportWorkRequestButton contract={contract} equipment={equipment} />
           {canEdit && (
             <AddEquipmentDialog
-              contractId={contractId}
+              contractId={contract.id}
               existingEquipmentIds={equipment.map((e) => e.equipment_id)}
             />
           )}

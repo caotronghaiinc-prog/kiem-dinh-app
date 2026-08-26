@@ -13,7 +13,12 @@ export interface ContractListItem {
   customer: { company_name: string } | null;
 }
 
-/** Full row dùng cho form sửa (không cần paid_total -- cột cache, không sửa tay). */
+/**
+ * Full row dùng cho form sửa (không cần paid_total -- cột cache, không sửa
+ * tay). 6 field PROMPT-66 (site_location...work_request_document_no) là dữ
+ * liệu cho "Giấy đề nghị thực hiện công việc" -- bản chất hợp đồng thu gọn
+ * công ty <-> kiểm định viên, nhập 1 lần ở đây, đọc thẳng lúc xuất.
+ */
 export interface ContractRecord {
   id: string;
   code: string;
@@ -25,6 +30,18 @@ export interface ContractRecord {
   status: ContractStatus;
   contract_file_path: string | null;
   note: string | null;
+  site_location: string | null;
+  execution_time_note: string | null;
+  contract_type_note: string | null;
+  using_unit_name: string | null;
+  using_unit_address: string | null;
+  work_request_document_no: string | null;
+}
+
+/** Tên kiểm định viên dùng cho "Kiểm định viên tham gia"/"Người đề nghị" (PROMPT-66). */
+export interface ContractPerson {
+  id: string;
+  full_name: string | null;
 }
 
 export type AcceptanceResult = "dat" | "co_van_de";
@@ -37,7 +54,13 @@ export type AcceptanceResult = "dat" | "co_van_de";
  */
 export interface ContractDetail extends ContractRecord {
   paid_total: number;
-  customer: { company_name: string; address: string | null; contact_name: string | null } | null;
+  customer: {
+    company_name: string;
+    address: string | null;
+    contact_name: string | null;
+    tax_code: string | null; // PROMPT-66: Mã số thuế Bên A
+    phone: string | null; // PROMPT-66: SĐT liên hệ Bên A
+  } | null;
   acceptance_date: string | null;
   acceptance_location: string | null;
   acceptance_result: AcceptanceResult | null;
@@ -46,6 +69,8 @@ export interface ContractDetail extends ContractRecord {
   representative_a_title: string | null;
   acceptance_copies_note: string | null;
   acceptance_file_path: string | null;
+  technicalResponsibles: ContractPerson[]; // PROMPT-66: tổ kiểm định viên tham gia
+  requester: ContractPerson | null; // PROMPT-66: 1 người trong nhóm trên, đứng tên ký
 }
 
 export interface ContractEquipmentRow {
