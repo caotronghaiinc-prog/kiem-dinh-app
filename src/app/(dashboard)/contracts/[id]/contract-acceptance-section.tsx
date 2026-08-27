@@ -41,7 +41,7 @@ export function ContractAcceptanceSection({
         <h2 className="text-lg font-semibold">Nghiệm thu hợp đồng</h2>
         <div className="flex flex-wrap items-center gap-2">
           <ExportAcceptanceButton contract={contract} customer={contract.customer} equipment={equipment} />
-          {canEdit && <AcceptanceDialog contract={contract} />}
+          {canEdit && <AcceptanceDialog contract={contract} equipment={equipment} />}
         </div>
       </div>
 

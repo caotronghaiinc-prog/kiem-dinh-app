@@ -175,7 +175,12 @@ export default async function ContractDetailPage(
         </div>
       </section>
 
-      <ContractEquipmentSection contract={contract} equipment={equipment} canEdit={canEdit} />
+      <ContractEquipmentSection
+        contract={contract}
+        equipment={equipment}
+        canEdit={canEdit}
+        inspectorOptions={inspectors}
+      />
 
       <ContractPaymentsSection
         contractId={contract.id}

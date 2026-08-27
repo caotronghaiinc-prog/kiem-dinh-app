@@ -106,22 +106,7 @@ export default async function QuoteDetailPage(
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <ExportQuoteButton
-            quoteId={quote.id}
-            quote={{
-              code: quote.code,
-              customer_name_snapshot: quote.customer_name_snapshot,
-              customer_address_snapshot: quote.customer_address_snapshot,
-              customer_contact_snapshot: quote.customer_contact_snapshot,
-              customer_phone_snapshot: quote.customer_phone_snapshot,
-              customer_tax_code_snapshot: quote.customer_tax_code_snapshot,
-              title: quote.title,
-              valid_until: quote.valid_until,
-              note: quote.note,
-              site_location: quote.site_location,
-            }}
-            items={items}
-          />
+          <ExportQuoteButton quoteId={quote.id} quote={quote} items={items} />
           {canEdit && (
             <Button asChild variant="outline">
               <Link href={`/quotes/${quote.id}/edit`}>Sửa</Link>

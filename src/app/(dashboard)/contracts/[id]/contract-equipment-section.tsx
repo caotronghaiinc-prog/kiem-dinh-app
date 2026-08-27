@@ -23,7 +23,7 @@ import { getEquipmentModelCode } from "@/lib/equipment/spec-fields";
 import { AddEquipmentDialog } from "./add-equipment-dialog";
 import { EditContractEquipmentDialog } from "./edit-contract-equipment-dialog";
 import { ExportWorkRequestButton } from "./export-work-request-button";
-import type { ContractDetail, ContractEquipmentRow } from "../types";
+import type { ContractDetail, ContractEquipmentRow, ContractPerson } from "../types";
 
 function formatDate(value: string | null): string {
   if (!value) return "—";
@@ -34,10 +34,12 @@ export function ContractEquipmentSection({
   contract,
   equipment,
   canEdit,
+  inspectorOptions,
 }: {
   contract: ContractDetail;
   equipment: ContractEquipmentRow[];
   canEdit: boolean;
+  inspectorOptions: ContractPerson[];
 }) {
   const router = useRouter();
   const { toast } = useToast();
@@ -69,7 +71,11 @@ export function ContractEquipmentSection({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold">Thiết bị trong hợp đồng</h2>
         <div className="flex flex-wrap items-center gap-2">
-          <ExportWorkRequestButton contract={contract} equipment={equipment} />
+          <ExportWorkRequestButton
+            contract={contract}
+            equipment={equipment}
+            inspectorOptions={inspectorOptions}
+          />
           {canEdit && (
             <AddEquipmentDialog
               contractId={contract.id}

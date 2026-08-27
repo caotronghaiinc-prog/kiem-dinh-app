@@ -37,10 +37,35 @@ import {
   buildAcceptanceEmptyValues,
   type AcceptanceFormValues,
 } from "@/lib/contracts/acceptance-form-schema";
+import { buildContractAcceptanceDocx } from "@/lib/reports/contract-acceptance";
+import { numberToVietnameseWords } from "@/lib/utils/number-to-words-vi";
 import { AttachmentLink } from "../attachment-link";
-import type { ContractDetail } from "../types";
+import type { ContractDetail, ContractEquipmentRow } from "../types";
 
-export function AcceptanceDialog({ contract }: { contract: ContractDetail }) {
+// Mirror nguyên xi từ export-acceptance-button.tsx (file đó KHÔNG đổi gì
+// theo quyết định PROMPT-67, nên không export dùng chung được -- chấp
+// nhận trùng 1 hàm nhỏ 6 dòng).
+function slugify(text: string): string {
+  return text
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/đ/gi, "d")
+    .replace(/[^a-zA-Z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+const RESULT_LABELS: Record<string, string> = {
+  dat: "Đạt yêu cầu hoàn toàn",
+  co_van_de: "Có vấn đề, ghi chú",
+};
+
+export function AcceptanceDialog({
+  contract,
+  equipment,
+}: {
+  contract: ContractDetail;
+  equipment: ContractEquipmentRow[];
+}) {
   const router = useRouter();
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
@@ -66,6 +91,9 @@ export function AcceptanceDialog({ contract }: { contract: ContractDetail }) {
   });
 
   const result = form.watch("acceptance_result");
+  // PROMPT-67: watch TOÀN BỘ form -- panel xem trước bên trái đọc từ đây để
+  // cập nhật theo thời gian thực khi gõ (không đọc từ contract đã lưu).
+  const watched = form.watch();
 
   function handleOpenChange(next: boolean) {
     if (submitting) return;
@@ -110,34 +138,41 @@ export function AcceptanceDialog({ contract }: { contract: ContractDetail }) {
     return path;
   }
 
+  // Lưu vào contracts, trả về bản ghi vừa lưu (shape ContractDetail đủ để
+  // buildContractAcceptanceDocx dùng ngay) -- TÁCH ra để 2 nút "Lưu"/"Lưu &
+  // Tải xuống" cùng gọi, chỉ khác bước cuối (tải file hay không), mirror
+  // quyết định PROMPT-67.
+  async function saveAcceptance(values: AcceptanceFormValues): Promise<ContractDetail> {
+    const supabase = createClient();
+    // GIỮ NGUYÊN file cũ theo mặc định, chỉ thay khi chọn file mới (mirror
+    // pattern contract-form.tsx đang dùng cho contract_file_path).
+    let acceptanceFilePath = contract.acceptance_file_path;
+    if (file) {
+      acceptanceFilePath = await uploadAcceptanceFile();
+    }
+
+    const payload = {
+      acceptance_date: values.acceptance_date || null,
+      acceptance_location: values.acceptance_location || null,
+      acceptance_result: values.acceptance_result,
+      acceptance_note:
+        values.acceptance_result === "co_van_de" ? values.acceptance_note || null : null,
+      representative_a_name: values.representative_a_name || null,
+      representative_a_title: values.representative_a_title || null,
+      acceptance_copies_note: values.acceptance_copies_note || null,
+      acceptance_file_path: acceptanceFilePath,
+    };
+
+    const { error } = await supabase.from("contracts").update(payload).eq("id", contract.id);
+    if (error) throw error;
+
+    return { ...contract, ...payload };
+  }
+
   async function onSubmit(values: AcceptanceFormValues) {
     setSubmitting(true);
     try {
-      const supabase = createClient();
-      // GIỮ NGUYÊN file cũ theo mặc định, chỉ thay khi chọn file mới (mirror
-      // pattern contract-form.tsx đang dùng cho contract_file_path).
-      let acceptanceFilePath = contract.acceptance_file_path;
-      if (file) {
-        acceptanceFilePath = await uploadAcceptanceFile();
-      }
-
-      const { error } = await supabase
-        .from("contracts")
-        .update({
-          acceptance_date: values.acceptance_date || null,
-          acceptance_location: values.acceptance_location || null,
-          acceptance_result: values.acceptance_result,
-          acceptance_note:
-            values.acceptance_result === "co_van_de" ? values.acceptance_note || null : null,
-          representative_a_name: values.representative_a_name || null,
-          representative_a_title: values.representative_a_title || null,
-          acceptance_copies_note: values.acceptance_copies_note || null,
-          acceptance_file_path: acceptanceFilePath,
-        })
-        .eq("id", contract.id);
-
-      if (error) throw error;
-
+      await saveAcceptance(values);
       toast({ title: "Đã cập nhật thông tin nghiệm thu" });
       setOpen(false);
       router.refresh();
@@ -152,6 +187,35 @@ export function AcceptanceDialog({ contract }: { contract: ContractDetail }) {
     }
   }
 
+  async function onSubmitAndDownload(values: AcceptanceFormValues) {
+    setSubmitting(true);
+    try {
+      const saved = await saveAcceptance(values);
+      const blob = await buildContractAcceptanceDocx(saved, contract.customer, equipment);
+      const fileName = `Bien_ban_nghiem_thu_${saved.code}_${slugify(contract.customer?.company_name ?? "khach_hang")}.docx`;
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast({ title: "Đã lưu và tải biên bản nghiệm thu" });
+      setOpen(false);
+      router.refresh();
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Lưu & tải biên bản nghiệm thu thất bại",
+        description: logAndGetSafeMessage(error, "Có lỗi xảy ra, vui lòng thử lại."),
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
@@ -159,11 +223,95 @@ export function AcceptanceDialog({ contract }: { contract: ContractDetail }) {
           Cập nhật thông tin nghiệm thu
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+      <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Thông tin nghiệm thu hợp đồng</DialogTitle>
         </DialogHeader>
 
+        <div className="grid gap-6 lg:grid-cols-2">
+          <div className="flex flex-col gap-3 rounded-md border bg-muted/30 p-4 text-sm">
+            <p className="text-center font-semibold">BIÊN BẢN NGHIỆM THU</p>
+
+            <div className="flex flex-col gap-1">
+              <p className="font-medium">I. ĐẠI DIỆN BÊN A: {contract.customer?.company_name || "—"}</p>
+              <p>
+                {watched.representative_a_name?.trim() || "……"} — Chức vụ:{" "}
+                {watched.representative_a_title?.trim() || "……"}
+              </p>
+              <p>Địa chỉ: {contract.customer?.address || "……"}</p>
+            </div>
+
+            <div className="overflow-x-auto rounded border bg-background">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b bg-muted/50">
+                    <th className="p-2 text-left">Nội dung công việc</th>
+                    <th className="p-2 text-right">SL</th>
+                    <th className="p-2 text-right">Đơn giá (đã VAT)</th>
+                    <th className="p-2 text-right">Thành tiền</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {equipment.map((row) => {
+                    const unitPriceWithVat = Math.round(row.unit_price * 1.08);
+                    return (
+                      <tr key={row.id} className="border-b">
+                        <td className="p-2">{row.equipment?.name || "—"}</td>
+                        <td className="p-2 text-right">{row.quantity}</td>
+                        <td className="p-2 text-right">{unitPriceWithVat.toLocaleString("vi-VN")}</td>
+                        <td className="p-2 text-right">
+                          {(row.quantity * unitPriceWithVat).toLocaleString("vi-VN")}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td colSpan={3} className="p-2 text-right font-semibold">
+                      Tổng cộng (đã bao gồm thuế GTGT 8%):
+                    </td>
+                    <td className="p-2 text-right font-semibold">
+                      {contract.total_value.toLocaleString("vi-VN")}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+
+            <p className="italic">Bằng chữ: {numberToVietnameseWords(contract.total_value)} đồng./.</p>
+
+            <div className="flex flex-col gap-1">
+              <p className="font-medium">2. NHẬN XÉT, ĐÁNH GIÁ</p>
+              <p>- Đã tiến hành kiểm định đúng quy trình, tiêu chuẩn kỹ thuật hiện hành;</p>
+              <p>
+                -{" "}
+                {watched.acceptance_result === "co_van_de"
+                  ? watched.acceptance_note?.trim() || "……"
+                  : "Kết quả kiểm định đạt yêu cầu;"}
+              </p>
+              <p>- Đã bàn giao đầy đủ hồ sơ kỹ thuật (biên bản kiểm định, kết quả kiểm định, tem kiểm định);</p>
+              <p>
+                - Khối lượng, chất lượng công việc thực hiện đúng theo thỏa thuận tại Hợp đồng kinh tế
+                nêu trên.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <p className="font-medium">3. KẾT LUẬN</p>
+              <p>
+                Hai bên thống nhất nghiệm thu khối lượng, chất lượng công việc nêu trên, xác nhận Bên B
+                đã hoàn thành đầy đủ nghĩa vụ theo Hợp đồng kinh tế đã ký. Biên bản này là cơ sở để hai
+                bên tiến hành thanh toán theo thỏa thuận.
+              </p>
+            </div>
+
+            <p className="text-xs text-muted-foreground">
+              Kết quả kiểm định: {RESULT_LABELS[watched.acceptance_result] ?? "—"}
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-4">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4">
             <div className="grid gap-4 sm:grid-cols-2">
@@ -319,6 +467,15 @@ export function AcceptanceDialog({ contract }: { contract: ContractDetail }) {
               >
                 Hủy
               </Button>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={submitting}
+                onClick={form.handleSubmit(onSubmitAndDownload)}
+              >
+                {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Lưu & Tải xuống
+              </Button>
               <Button type="submit" disabled={submitting}>
                 {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Lưu
@@ -326,6 +483,8 @@ export function AcceptanceDialog({ contract }: { contract: ContractDetail }) {
             </DialogFooter>
           </form>
         </Form>
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   );

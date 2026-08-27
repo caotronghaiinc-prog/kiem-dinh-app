@@ -33,6 +33,7 @@ import {
 } from "@/lib/inspection/form-schema";
 import { contractFormSchema, type ContractFormValues } from "@/lib/contracts/form-schema";
 import { CONTRACT_STATUS_OPTIONS } from "@/lib/contracts/status";
+import { buildWorkRequestPayload, syncTechnicalResponsibles } from "@/lib/contracts/work-request-fields";
 import { AttachmentLink } from "./attachment-link";
 import type { ContractPerson, ContractRecord, CustomerOption } from "./types";
 
@@ -147,42 +148,21 @@ export function ContractForm({
     return path;
   }
 
-  // Đồng bộ tổ kiểm định viên tham gia -- xóa hết rồi chèn lại (đơn giản,
-  // chấp nhận không transaction, mirror mức rủi ro đã có sẵn ở bước insert-
-  // rồi-upload-file trong file này). Không throw nếu lỗi -- hợp đồng chính
-  // đã lưu thành công, chỉ toast riêng.
-  async function syncTechnicalResponsibles(contractId: string) {
+  // Đồng bộ tổ kiểm định viên tham gia -- không throw nếu lỗi -- hợp đồng
+  // chính đã lưu thành công, chỉ toast riêng (mirror mức rủi ro đã có sẵn
+  // ở bước insert-rồi-upload-file trong file này). Logic thật nằm ở
+  // work-request-fields.ts (PROMPT-67, tách ra để dùng chung với
+  // work-request-preview-dialog.tsx mới).
+  async function syncResponsibles(contractId: string) {
     const supabase = createClient();
-    const { error: deleteError } = await supabase
-      .from("contract_technical_responsibles")
-      .delete()
-      .eq("contract_id", contractId);
-
-    if (deleteError) {
-      toast({
-        variant: "destructive",
-        title: "Lưu tổ kiểm định viên tham gia thất bại",
-        description: logAndGetSafeMessage(deleteError, "Có lỗi xảy ra, vui lòng thử sửa lại."),
-      });
-      return;
-    }
-
-    if (technicalResponsibleIds.length === 0) return;
-
-    const { error: insertError } = await supabase.from("contract_technical_responsibles").insert(
-      technicalResponsibleIds.map((profile_id) => ({
-        contract_id: contractId,
-        profile_id,
-        is_requester: profile_id === requesterId,
-      }))
+    const { error } = await syncTechnicalResponsibles(
+      supabase,
+      contractId,
+      technicalResponsibleIds,
+      requesterId
     );
-
-    if (insertError) {
-      toast({
-        variant: "destructive",
-        title: "Lưu tổ kiểm định viên tham gia thất bại",
-        description: logAndGetSafeMessage(insertError, "Có lỗi xảy ra, vui lòng thử sửa lại."),
-      });
+    if (error) {
+      toast({ variant: "destructive", title: "Lưu tổ kiểm định viên tham gia thất bại", description: error });
     }
   }
 
@@ -205,12 +185,7 @@ export function ContractForm({
       signed_date: values.signed_date || null,
       status: values.status,
       note: values.note || null,
-      site_location: values.site_location || null,
-      execution_time_note: values.execution_time_note || null,
-      contract_type_note: values.contract_type_note || null,
-      using_unit_name: values.using_unit_name || null,
-      using_unit_address: values.using_unit_address || null,
-      work_request_document_no: values.work_request_document_no || null,
+      ...buildWorkRequestPayload(values),
     };
 
     try {
@@ -237,7 +212,7 @@ export function ContractForm({
           if (updateFileError) throw updateFileError;
         }
 
-        await syncTechnicalResponsibles(inserted.id);
+        await syncResponsibles(inserted.id);
 
         // PROMPT-60 mục 7: "Tạo hợp đồng từ báo giá" -- copy CÁC quote_items
         // CÓ equipment_id sang contract_equipment (bỏ qua item không có
@@ -301,7 +276,7 @@ export function ContractForm({
 
       if (updateError) throw updateError;
 
-      await syncTechnicalResponsibles(contract!.id);
+      await syncResponsibles(contract!.id);
 
       toast({ title: "Đã cập nhật hợp đồng" });
       router.push(`/contracts/${contract!.id}`);
